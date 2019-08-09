@@ -139,7 +139,7 @@ v0 = (alpha).*r_mat+(1-alpha).*k_mat;
 % -t_mat.^2;
 v1_initial = v0.*ones(size(r_mat));
 out = v0;
-
+vold = v0 .* ones(size(v0));
 %%% for first iter
     v0 = v0.*ones(size(v0));
     v0 = reshape(out,size(v0));
@@ -414,7 +414,8 @@ I_term = -1./theta.*log(pi_tilde_1+pi_tilde_2+pi_tilde_3+pi_tilde_4...
 %     error_plot = zeros(size(r),20);
     iter = 1;
     
-    vold = v0 .* ones(size(v0));
+        v0 = v0.*ones(size(v0));
+    v0 = reshape(out,size(v0));
     
    
     
