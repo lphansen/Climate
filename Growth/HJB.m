@@ -417,9 +417,9 @@ I_term = -1./theta.*log(pi_tilde_1+pi_tilde_2+pi_tilde_3+pi_tilde_4...
     vold = v0 .* ones(size(v0));
     
    
-    
+c1 = clock;
 timeDerivative = [];
-while (max(max(max(max(abs(out_comp - vold) / dt))))) > tol
+while ((max(max(max(max(abs(out_comp - vold) / dt))))) > tol) && (iter < 1000)
     tic
     vold = v0 .* ones(size(v0));
     
@@ -697,6 +697,9 @@ I_term = -1./theta.*log(pi_tilde_1+pi_tilde_2+pi_tilde_3+pi_tilde_4...
     
     toc
 end
+c2 = clock;
+
+(c2(5) - c1(5)) * 60 + c2(6) - c1(6)
 
 save(filename2);
 
