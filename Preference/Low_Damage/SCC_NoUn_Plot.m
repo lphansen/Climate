@@ -2,11 +2,10 @@
 clc;
 clear all;
 close all;
-%%
+
+%%%%% Step 0: Load simulated trajectory
 file1 = [pwd, '/HJB_NonLinPref_Cumu_NoUn_Sims'];
-
 Model1 = load(file1,'hists2','i_k_hists2','e_hists2','f_hists2','A_O','alpha','theta','kappa');
-
 data1 = Model1.hists2;
 i_k = Model1.i_k_hists2;
 e = Model1.e_hists2;
@@ -16,10 +15,10 @@ alpha = Model1.alpha;
 theta = Model1.theta;
 kappa = Model1.kappa;
 
-time_vec = linspace(0,100,400);
-
+%%%%% Step 1: Compute SCC
 SCC = 1000*mean(((alpha./(1-alpha)).*(A_O.*squeeze(data1(:,2,:))-i_k-f)./e),2);
 
+%%%%% Step 2: Save file
 s1 = num2str(1./theta,4);
 s1 = strrep(s1,'.','');
 s2 = num2str(kappa,4);
