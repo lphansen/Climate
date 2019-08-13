@@ -1,26 +1,22 @@
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%% Simulation %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
 clear all
+close all
 clc
 
-
+%%%%% Step 0: Load solution and save filename
 filename = [pwd,'/HJB_NonLinPref_Cumu'];
 load(filename);
-
-
 filename2 = [pwd,'/HJB_NonLinPref_Cumu'];
 filename3 = [filename2,'_Sims'];
 
-R_0 = 650;
-K_0 = 80/A_O;
-T_0 = (870-580);
-
-initial_val = [R_0 K_0 T_0];
-
-T = 100; 
-pers = 4*T; 
+%%%%% Step 1: Set up simulation
+T = 100; % 100 years
+pers = 4*T; % quarterly
 dt = T/pers;
+nDims = 5;
+its = 1;
 
-%%% take in HJB results
+%%%%% Step 2: Create functions
 efunc = griddedInterpolant(r_mat,t_mat,k_mat,e,'spline');
 if weight == 1
     ffunc = griddedInterpolant(r_mat,t_mat,k_mat,f,'spline');
@@ -49,7 +45,6 @@ bar_gamma_2_plus = (1-weight).*gamma_2_plus;
 pi_tilde_1_func = @(x) pi_tilde_1func(log(x(:,1)),x(:,3),log(x(:,2)));
 pi_tilde_2_func = @(x) pi_tilde_2func(log(x(:,1)),x(:,3),log(x(:,2)));
 
-%%% construct drifts for D
 base_model_drift_func = @(x) exp(r_mat).*e...
         .*(gamma_1.*x +gamma_2.*t_mat.*x.^2 ...
         +bar_gamma_2_plus.*x.*(x.*t_mat-f_bar).^(power-1).*((x.*t_mat-f_bar)>=0))...
@@ -75,11 +70,16 @@ nordhaus_drift_func = @(x) nordhaus_driftfunc(log(x(:,1)),x(:,3),log(x(:,2)));
 weitzman_drift_func = @(x) weitzman_driftfunc(log(x(:,1)),x(:,3),log(x(:,2)));
 base_drift_func = @(x) base_driftfunc(log(x(:,1)),x(:,3),log(x(:,2)));
 
+%%%%% Step 3: Set up initial values
+R_0 = 650;
+K_0 = 80/A_O;
+T_0 = (870-580);
+initial_val = [R_0 K_0 T_0];
 D_0_base = base_drift_func(initial_val);
 D_0_tilted = pi_tilde_1_func(initial_val).*nordhaus_drift_func(initial_val)...
     +(1-pi_tilde_1_func(initial_val)).*weitzman_drift_func(initial_val);
 
-%%% Create function handle for the drifts
+%%%%% Step 4: Create function handle for drifts and vols
 
 muR = @(x) -e_func(x)+Gamma_r.*f_func(x).^Theta_r;
 muK = @(x) (Alpha + Gamma.*log(1+i_k_func(x)./Theta));
@@ -88,12 +88,12 @@ muD_base = @(x) base_drift_func(x);
 muD_tilted = @(x) pi_tilde_1_func(x).*nordhaus_drift_func(x)...
     +(1-pi_tilde_1_func(x)).*weitzman_drift_func(x);
 
-%%%Create function handles for the vols
 sigmaR = @(x) [zeros(size(x(:,1:5)))];
 sigmaK = @(x) [zeros(size(x(:,1:5)))];
 sigmaT = @(x) [zeros(size(x(:,1:5)))];
 sigmaD = @(x) [zeros(size(x(:,1:5)))];
 
+%%%%% Step 5: Set bounds
 R_max = exp(r_max);
 K_max = exp(k_max);
 T_max = t_max;
@@ -107,10 +107,7 @@ D_min = -5;
 upperBounds = [R_max,K_max,T_max,D_max,D_max];
 lowerBounds = [R_min,K_min,T_min,D_min,D_min];
 
-nDims = 5;
-its = 1;
-% stop
-
+%%%%% Step 6: Initialize values and simulate trajectories
 hists = zeros(pers,nDims,its);
 hists2 = hists;
 e_hists = zeros(pers,its);
@@ -119,8 +116,6 @@ f_hists = zeros(pers,its);
 f_hists2 = f_hists;
 i_k_hists = zeros(pers,its);
 i_k_hists2 = i_k_hists;
-
-tic
 
 for iters = 1:its
     
@@ -144,7 +139,6 @@ v_dk_hist2(1) =  v_dk_func(hist2(1,:));
 v_hist2(1) =  v_func(hist2(1,:));
 
 for j = 2:pers
-
 shock = normrnd(0,sqrt(dt), 1, nDims);
 hist2(j,1) = max(min(hist2(j-1,1).*exp((muR(hist2(j-1,:))-0.5.*sum((sigmaR(hist2(j-1,:))).^2) )* dt ...
                                   +sigmaR(hist2(j-1,:))* shock'), upperBounds(:,1)), lowerBounds(:,1));
@@ -175,7 +169,5 @@ v_dk_hists2(:,iters) =  v_dk_hist2;
 v_hists2(:,iters) =  v_hist2;
 end
 
-
-%% save results 
-
+%%%%% Step 7: save results 
 save(filename3);
