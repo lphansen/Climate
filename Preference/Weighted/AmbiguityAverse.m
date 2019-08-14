@@ -806,6 +806,9 @@ s_scc = strcat('SCC_A=',s1,'.mat');
 save(s_scc,'SCC','SCC1','SCC2','SCC3');
 
 %% Step 5: Probabilities
+clear all
+close all
+clc
 
 % load results
 file1 = [pwd, '/HJB_NonLinPref_Cumu'];
