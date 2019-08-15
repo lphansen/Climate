@@ -541,58 +541,36 @@ clc
 % Feyman Kac
 load([pwd, '/HJB_NonLinPref_Cumu']);
 
-d_min = 0;
-d_max = 0.5;
-nd = 3;
-d = linspace(d_min,d_max,nd)';
-hd = d(2) - d(1);
-[r_mat_1,t_mat_1,k_mat_1,d_mat_1] = ndgrid(r,t,k,d); 
-
-e = repmat(e,[1,1,1,nd]);
-f = repmat(f,[1,1,1,nd]);
-i_k = repmat(i_k,[1,1,1,nd]);
-v0_dr = repmat(v0_dr,[1,1,1,nd]);
-v0_dt = repmat(v0_dr,[1,1,1,nd]);
-v0_dk = repmat(v0_dk,[1,1,1,nd]);
-
-base_model_drift_func = @(x) ...
-    (gamma_1.*x +gamma_2.*t_mat_1.*x.^2 ...
-    +bar_gamma_2_plus.*x.*(x.*t_mat_1-f_bar).^(power-1).*((x.*t_mat_1-f_bar)>=0))...
-    .*normpdf(x,beta_f,sqrt(var_beta_f)); 
-base_model_drift = quad_int(base_model_drift_func, a, b, n,'legendre');
-muD_base_1 = base_model_drift;
-
 base_model_flow_func = @(x) ...
-    (gamma_2.*x.^2 +bar_gamma_2_plus.*x.^2.*((x.*t_mat_1-f_bar)>=0)).*exp(r_mat_1).*e...
+    (gamma_2.*x.^2 +bar_gamma_2_plus.*x.^2.*((x.*t_mat-f_bar)>=0)).*exp(r_mat).*e...
     .*normpdf(x,beta_f,sqrt(var_beta_f)); 
 base_model_flow = quad_int(base_model_flow_func, a, b, n,'legendre');
-flow_base_1 = base_model_flow;
+flow_base = base_model_flow;
 
 % inputs for solver
-A = -delta.*ones(size(r_mat_1));
+A = -delta.*ones(size(r_mat));
 B_r = -e+Gamma_r.*(f.^Theta_r)-0.5.*(sigma_r.^2);
 B_k = Alpha+Gamma.*log(1+i_k./Theta)-0.5.*(sigma_k.^2);
-B_t = e.*exp(r_mat_1);
-B_d = muD_base_1.*exp(r_mat_1).*e;
-C_rr = 0.5.*sigma_r.^2.*ones(size(r_mat_1));
-C_kk = 0.5.*sigma_k.^2.*ones(size(r_mat_1));
-C_tt = zeros(size(r_mat_1));
-C_dd = 0.5.*sigma_d.^2.*e.^2.*exp(2.*r_mat_1);
-D = flow_base_1;
+B_t = e.*exp(r_mat);
+C_rr = 0.5.*sigma_r.^2.*ones(size(r_mat));
+C_kk = 0.5.*sigma_k.^2.*ones(size(r_mat));
+C_tt = zeros(size(r_mat));
+
+D = flow_base;
             
-stateSpace = [r_mat_1(:), t_mat_1(:), k_mat_1(:), d_mat_1(:)]; 
+stateSpace = [r_mat(:), t_mat(:), k_mat(:)]; 
 model      = {};
 model.A    = A(:); 
-model.B    = [B_r(:), B_t(:), B_k(:), B_d(:)];
-model.C    = [C_rr(:), C_tt(:), C_kk(:), C_dd(:)];
+model.B    = [B_r(:), B_t(:), B_k(:)];
+model.C    = [C_rr(:), C_tt(:), C_kk(:)];
 model.D    = D(:);
-model.v0   = r_mat_1(:).*0;
+model.v0   = v0(:).*0;
 model.dt   = 1.0;
     
 out = solveCGNatural_1(stateSpace, model);
 
 % save results
-v0 = reshape(out,size(r_mat_1));
+v0 = reshape(out,size(r_mat));
 filename2 = [pwd, '/SCC_mat_Cumu_base'];
 save(filename2)
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
@@ -603,46 +581,25 @@ clc
 
 load([pwd, '/HJB_NonLinPref_Cumu']);
 
-d_min = 0;
-d_max = 0.5;
-nd = 3;
-d = linspace(d_min,d_max,nd)';
-hd = d(2) - d(1);
-[r_mat_1,t_mat_1,k_mat_1,d_mat_1] = ndgrid(r,t,k,d); 
-
-e = repmat(e,[1,1,1,nd]);
-f = repmat(f,[1,1,1,nd]);
-i_k = repmat(i_k,[1,1,1,nd]);
-v0_dr = repmat(v0_dr,[1,1,1,nd]);
-v0_dt = repmat(v0_dr,[1,1,1,nd]);
-v0_dk = repmat(v0_dk,[1,1,1,nd]);
-
 mean_nordhaus = beta_tilde_1;
 lambda_tilde_nordhaus = lambda_tilde_1;
-nordhaus_model_drift = (gamma_1.*mean_nordhaus...
-    +gamma_2.*t_mat_1.*(1./lambda_tilde_nordhaus+mean_nordhaus.^2));
 
 scale_2_1_fnc = @(x) exp(-theta.*xi_d.*(gamma_1.*x ...
-    +gamma_2.*x.^2.*t_mat_1 ...
-    +gamma_2_plus.*x.*(x.*t_mat_1-f_bar).^(power-1).*((x.*t_mat_1-f_bar)>=0)).*exp(r_mat_1).*e) ...
+    +gamma_2.*x.^2.*t_mat ...
+    +gamma_2_plus.*x.*(x.*t_mat-f_bar).^(power-1).*((x.*t_mat-f_bar)>=0)).*exp(r_mat).*e) ...
     .*normpdf(x,beta_f,sqrt(var_beta_f));
 scale_2_1 = quad_int(scale_2_1_fnc, [a], [b], n, 'legendre');
+
 q2_tilde_1_fnc = @(x) exp(-theta.*xi_d.*(gamma_1.*x ...
-    +gamma_2.*x.^2.*t_mat_1 ...
-    +gamma_2_plus.*x.*(x.*t_mat_1-f_bar).^(power-1).*((x.*t_mat_1-f_bar)>=0)).*exp(r_mat_1).*e)./scale_2_1;
-weitzman_model_drift_func = @(x) q2_tilde_1_fnc(x) ...
-    .*(gamma_1.*x +gamma_2.*t_mat_1.*x.^2 ...
-    +gamma_2_plus.*x.*(x.*t_mat_1 - f_bar).^(power-1).*((x.*t_mat_1-f_bar)>=0)) ...
-    .*normpdf(x,beta_f,sqrt(var_beta_f));
-weitzman_model_drift = quad_int(weitzman_model_drift_func, [a], [b], n, 'legendre');
+    +gamma_2.*x.^2.*t_mat ...
+    +gamma_2_plus.*x.*(x.*t_mat-f_bar).^(power-1).*((x.*t_mat-f_bar)>=0)).*exp(r_mat).*e)./scale_2_1;
 
-nordhaus_model_flow = (gamma_2.*(1./lambda_tilde_nordhaus+mean_nordhaus.^2)).*exp(r_mat_1).*e;
-
+nordhaus_model_flow = (gamma_2.*(1./lambda_tilde_nordhaus+mean_nordhaus.^2)).*exp(r_mat).*e;
 weitzman_model_flow_func = @(x) q2_tilde_1_fnc(x) ...
-    .*(gamma_2.*x.^2 +gamma_2_plus.*x.^2.*((x.*t_mat_1-f_bar)>=0)).*exp(r_mat_1).*e ...
+    .*(gamma_2.*x.^2 +gamma_2_plus.*x.^2.*((x.*t_mat-f_bar)>=0)).*exp(r_mat).*e ...
     .*normpdf(x,beta_f,sqrt(var_beta_f));
 weitzman_model_flow = quad_int(weitzman_model_flow_func, [a], [b], n, 'legendre');
-    
+
 I_1 = -0.5.*log(lambda)./theta + 0.5.*log(lambda_tilde_1)./theta ...
     +0.5.*lambda.*beta_f.^2./theta -0.5.*lambda_tilde_1.*(beta_tilde_1).^2./theta;
 pi_tilde_1 = weight.*exp(-theta.*I_1);  
@@ -651,37 +608,31 @@ pi_tilde_2 = (1-weight).*exp(-theta.*I_2);
 pi_tilde_1_norm = pi_tilde_1./(pi_tilde_1+pi_tilde_2);
 pi_tilde_2_norm = 1-pi_tilde_1_norm;
 
-muD_tilted = pi_tilde_1_norm.*nordhaus_model_drift ...
-    +(1-pi_tilde_1_norm).*weitzman_model_drift;
-muD_tilted_1 = muD_tilted;
-
 flow_tilted = pi_tilde_1_norm.*nordhaus_model_flow ...
     +(1-pi_tilde_1_norm).*weitzman_model_flow;
-flow_tilted_1 = flow_tilted;
 
-A = -delta.*ones(size(r_mat_1));
+A = -delta.*ones(size(r_mat));
 B_r = -e+Gamma_r.*(f.^Theta_r)-0.5.*(sigma_r.^2);
 B_k = Alpha+Gamma.*log(1+i_k./Theta)-0.5.*(sigma_k.^2);
-B_t = e.*exp(r_mat_1);
-B_d = muD_tilted_1.*e.*exp(r_mat_1);
-C_rr = 0.5.*sigma_r.^2.*ones(size(r_mat_1));
-C_kk = 0.5.*sigma_k.^2.*ones(size(r_mat_1));
-C_tt = zeros(size(r_mat_1));
-C_dd = 0.5.*sigma_d.^2.*e.^2.*exp(2.*r_mat_1);
-D = flow_tilted_1;
+B_t = e.*exp(r_mat);
+C_rr = 0.5.*sigma_r.^2.*ones(size(r_mat));
+C_kk = 0.5.*sigma_k.^2.*ones(size(r_mat));
+C_tt = zeros(size(r_mat));
 
-stateSpace = [r_mat_1(:), t_mat_1(:), k_mat_1(:), d_mat_1(:)]; 
+D = flow_tilted;
+
+stateSpace = [r_mat(:), t_mat(:), k_mat(:)]; 
 model      = {};
 model.A    = A(:); 
-model.B    = [B_r(:), B_t(:), B_k(:), B_d(:)];
-model.C    = [C_rr(:), C_tt(:), C_kk(:), C_dd(:)];
+model.B    = [B_r(:), B_t(:), B_k(:)];
+model.C    = [C_rr(:), C_tt(:), C_kk(:)];
 model.D    = D(:);
-model.v0   = r_mat_1(:).*0;
+model.v0   = v0(:).*0;
 model.dt   = 1.0;
 
 out = solveCGNatural_1(stateSpace, model);
 
-v0 = reshape(out,size(r_mat_1));
+v0 = reshape(out,size(r_mat));
 filename2 = [pwd, '/SCC_mat_Cumu_worst'];
 save(filename2)
 
@@ -692,18 +643,18 @@ clc;
 
 % load results
 file2 = [pwd, '/SCC_mat_Cumu_base'];
-Model2 = load(file2,'v0','r_mat_1','k_mat_1','d_mat_1','t_mat_1','i_k','f','e','v0_dk','v0_dr','theta',...
+Model2 = load(file2,'v0','r_mat','k_mat','t_mat','i_k','f','e','v0_dk','v0_dr','theta','kappa',...
     'A_O','alpha','delta','Theta','Gamma','expec_e_sum','xi_d','a','b','n','gamma_1','gamma_2','f_bar',...
-    'bar_gamma_2_plus','beta_f','var_beta_f','power','nd');
+    'bar_gamma_2_plus','beta_f','var_beta_f','power');
 external_v0 = Model2.v0;
-r_mat_1 = Model2.r_mat_1;
-k_mat_1 = Model2.k_mat_1;
-d_mat_1 = Model2.d_mat_1;
-t_mat_1 = Model2.t_mat_1;
+r_mat = Model2.r_mat;
+k_mat = Model2.k_mat;
+t_mat = Model2.t_mat;
 gamma_1 = Model2.gamma_1;
 gamma_2 = Model2.gamma_2;
 f_bar = Model2.f_bar;
 theta = Model2.theta;
+kappa = Model2.kappa;
 A_O = Model2.A_O;
 alpha = Model2.alpha;
 delta = Model2.delta;
@@ -717,57 +668,54 @@ bar_gamma_2_plus = Model2.bar_gamma_2_plus;
 beta_f = Model2.beta_f;
 var_beta_f = Model2.var_beta_f;
 power = Model2.power;
-nd = Model2.nd;
 
 file1 = [pwd,'/HJB_NonLinPref_Cumu'];
-Model1 = load(file1,'v0_dr','v0_dk','v0_dt','v0_dtt','i_k','f','e','expec_e_sum');
-v0_dk_1 = repmat(Model1.v0_dk,[1,1,1,nd]);
-v0_dr_1 = repmat(Model1.v0_dr,[1,1,1,nd]);
-v0_dt_1 = repmat(Model1.v0_dt,[1,1,1,nd]);
-v0_dtt_1 = repmat(Model1.v0_dtt,[1,1,1,nd]);
-i_k_1 = repmat(Model1.i_k,[1,1,1,nd]);
-f_1 = repmat(Model1.f,[1,1,1,nd]);
-e_1 = repmat(Model1.e,[1,1,1,nd]);
-expec_e_sum_1 = repmat(Model1.expec_e_sum,[1,1,1,nd]);
+Model1 = load(file1,'v0_dr','v0_dk','v0_dt','i_k','f','e','expec_e_sum');
+v0_dk = Model1.v0_dk;
+v0_dr = Model1.v0_dr;
+v0_dt = Model1.v0_dt;
+i_k = Model1.i_k;
+f = Model1.f;
+e = Model1.e;
+expec_e_sum = Model1.expec_e_sum;
 
-MC = delta.*(1-alpha)./(A_O.*exp(k_mat_1)-i_k_1.*exp(k_mat_1)-f_1.*exp(r_mat_1));
-ME = delta.*alpha./(e_1.*exp(r_mat_1));
+MC = delta.*(1-alpha)./(A_O.*exp(k_mat)-i_k.*exp(k_mat)-f.*exp(r_mat));
+ME = delta.*alpha./(e.*exp(r_mat));
 SCC = 1000*ME./MC;
-SCC_func = griddedInterpolant(r_mat_1,t_mat_1,k_mat_1,d_mat_1,SCC,'spline');
+SCC_func = griddedInterpolant(r_mat,t_mat,k_mat,SCC,'spline');
 
-ME1 = (v0_dr_1.*exp(-r_mat_1));  
+ME1 = (v0_dr.*exp(-r_mat));  
 SCC1 = 1000*ME1./MC;
-SCC1_func = griddedInterpolant(r_mat_1,t_mat_1,k_mat_1,d_mat_1,SCC1,'linear');
+SCC1_func = griddedInterpolant(r_mat,t_mat,k_mat,SCC1,'linear');
 
 ME2_base =  (1-alpha).*external_v0;
 SCC2_base = 1000*ME2_base./MC;
-SCC2_base_func = griddedInterpolant(r_mat_1,t_mat_1,k_mat_1,d_mat_1,SCC2_base,'spline');
+SCC2_base_func = griddedInterpolant(r_mat,t_mat,k_mat,SCC2_base,'spline');
 
 V_d_baseline_func = @(x) xi_d...
-         .*(gamma_1.*x +gamma_2.*t_mat_1.*x.^2 ...
-        +bar_gamma_2_plus.*x.*(x.*t_mat_1-f_bar).^(power-1).*((x.*t_mat_1-f_bar)>=0)) ...
+         .*(gamma_1.*x +gamma_2.*t_mat.*x.^2 ...
+        +bar_gamma_2_plus.*x.*(x.*t_mat-f_bar).^(power-1).*((x.*t_mat-f_bar)>=0)) ...
         .*normpdf(x,beta_f,sqrt(var_beta_f));
 V_d_baseline = quad_int(V_d_baseline_func, [a], [b], n,'legendre');
 
 ME2b = - V_d_baseline;
 SCC2_V_d_baseline = 1000*ME2b./MC;
-SCC2_V_d_baseline_func = griddedInterpolant(r_mat_1,t_mat_1,k_mat_1,d_mat_1,SCC2_V_d_baseline,'spline');
+SCC2_V_d_baseline_func = griddedInterpolant(r_mat,t_mat,k_mat,SCC2_V_d_baseline,'spline');
 
 file2 = [pwd, '/SCC_mat_Cumu_worst'];
-Model2 = load(file2,'v0','r_mat_1','k_mat_1','d_mat_1','t_mat_1');
+Model2 = load(file2,'v0','r_mat','k_mat','t_mat');
 external_v0_worst = Model2.v0;
-r_mat_1 = Model2.r_mat_1;
-k_mat_1 = Model2.k_mat_1;
-d_mat_1 = Model2.d_mat_1;
-t_mat_1 = Model2.t_mat_1;
+r_mat = Model2.r_mat;
+k_mat = Model2.k_mat;
+t_mat = Model2.t_mat;
 
 ME2_tilt =  (1-alpha).*external_v0_worst;
 SCC2_tilt = 1000*ME2_tilt./MC;
-SCC2_tilt_func = griddedInterpolant(r_mat_1,t_mat_1,k_mat_1,d_mat_1,SCC2_tilt,'spline');
+SCC2_tilt_func = griddedInterpolant(r_mat,t_mat,k_mat,SCC2_tilt,'spline');
 
-ME2b = - expec_e_sum_1.*exp(-r_mat_1);
+ME2b = - expec_e_sum.*exp(-r_mat);
 SCC2_V_d_tilt = 1000*ME2b./MC;
-SCC2_V_d_tilt_func = griddedInterpolant(r_mat_1,t_mat_1,k_mat_1,d_mat_1,SCC2_V_d_tilt,'spline');
+SCC2_V_d_tilt_func = griddedInterpolant(r_mat,t_mat,k_mat,SCC2_V_d_tilt,'spline');
 
 file1 = [pwd, '/HJB_NonLinPref_Cumu_Sims'];
 Model1 = load(file1,'hists2');
@@ -776,12 +724,12 @@ hists2_A = Model1.hists2;
 % calculate SCC
 for time=1:400
     for path=1:1
-    SCC_values(time,path) = SCC_func(log((hists2_A(time,1,path))),(hists2_A(time,3,path)),log((hists2_A(time,2,path))),(hists2_A(time,5,path)));
-    SCC1_values(time,path) = SCC1_func(log((hists2_A(time,1,path))),(hists2_A(time,3,path)),log((hists2_A(time,2,path))),(hists2_A(time,4,path)));
-    SCC2_base_values(time,path) = SCC2_base_func(log((hists2_A(time,1,path))),(hists2_A(time,3,path)),log((hists2_A(time,2,path))),(hists2_A(time,4,path)));
-    SCC2_tilt_values(time,path) = SCC2_tilt_func(log((hists2_A(time,1,path))),(hists2_A(time,3,path)),log((hists2_A(time,2,path))),(hists2_A(time,5,path)));
-    SCC2_V_d_baseline_values(time,path) = SCC2_V_d_baseline_func(log((hists2_A(time,1,path))),(hists2_A(time,3,path)),log((hists2_A(time,2,path))),(hists2_A(time,4,path)));
-    SCC2_V_d_tilt_values(time,path) = SCC2_V_d_tilt_func(log((hists2_A(time,1,path))),(hists2_A(time,3,path)),log((hists2_A(time,2,path))),(hists2_A(time,5,path)));
+    SCC_values(time,path) = SCC_func(log((hists2_A(time,1,path))),(hists2_A(time,3,path)),log((hists2_A(time,2,path))));
+    SCC1_values(time,path) = SCC1_func(log((hists2_A(time,1,path))),(hists2_A(time,3,path)),log((hists2_A(time,2,path))));
+    SCC2_base_values(time,path) = SCC2_base_func(log((hists2_A(time,1,path))),(hists2_A(time,3,path)),log((hists2_A(time,2,path))));
+    SCC2_tilt_values(time,path) = SCC2_tilt_func(log((hists2_A(time,1,path))),(hists2_A(time,3,path)),log((hists2_A(time,2,path))));
+    SCC2_V_d_baseline_values(time,path) = SCC2_V_d_baseline_func(log((hists2_A(time,1,path))),(hists2_A(time,3,path)),log((hists2_A(time,2,path))));
+    SCC2_V_d_tilt_values(time,path) = SCC2_V_d_tilt_func(log((hists2_A(time,1,path))),(hists2_A(time,3,path)),log((hists2_A(time,2,path))));
     
     end
 end
