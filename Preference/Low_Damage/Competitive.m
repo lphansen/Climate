@@ -77,13 +77,12 @@ n = 30;
 a = beta_f-5.*sqrt(var_beta_f);
 b = beta_f+5.*sqrt(var_beta_f);
 
-tol = 1e-10; % tol
+tol = 1e-16; % tol
 dt = 0.5; % epsilon
 v0 = (alpha).*r_mat+(1-alpha).*k_mat-beta_f.*t_mat; % initial guess
 v1_initial = v0.*ones(size(r_mat));
 out = v0;
 vold = v0 .* ones(size(v0));
-timeDerivative = [];
 iter = 1;
 
 v0 = v0.*ones(size(v0));
@@ -214,12 +213,12 @@ model.dt   = dt;
 out = solveCGNatural(stateSpace, model);
 out_comp = reshape(out,size(v0)).*ones(size(r_mat));
     
-disp(['Error: ', num2str(max(max(max(abs(out_comp - v1_initial) / dt))))])
+disp(['Error: ', num2str(max(max(max(abs(out_comp - v1_initial)))))])
 v0 = v0.*ones(size(v0));
 v0 = reshape(out,size(v0));
 
 
-while (max(max(max(abs(out_comp - vold) / dt)))) > tol % check for convergence
+while (max(max(max(abs(out_comp - vold))))) > tol % check for convergence
    tic
    vold = v0 .* ones(size(v0));
 
@@ -349,8 +348,7 @@ while (max(max(max(abs(out_comp - vold) / dt)))) > tol % check for convergence
     out_comp = reshape(out,size(v0)).*ones(size(r_mat));
 
     iter = iter+1;
-    disp(['Diff: ', num2str(max(max(max(abs(out_comp - vold) / dt)))),' Number of Iters: ',num2str(iter)])
-    timeDerivative = [timeDerivative max(max(max(abs(out_comp - vold) / dt)))];
+    disp(['Diff: ', num2str(max(max(max(abs(out_comp - vold))))),' Number of Iters: ',num2str(iter)])
 
     v0 = v0.*ones(size(v0));
     v0 = reshape(out,size(v0));
@@ -358,7 +356,7 @@ while (max(max(max(abs(out_comp - vold) / dt)))) > tol % check for convergence
     pde_error = A.*v0+B_r.*v0_dr+B_t.*v0_dt+B_k.*v0_dk+C_rr.*v0_drr+C_kk.*v0_dkk+C_tt.*v0_dtt+D;
     disp(['PDE Error: ', num2str(max(max(max(abs(pde_error)))))]) % check equation
 
-    if (max(max(abs(out_comp - vold) / dt))) < tol
+    if (max(max(abs(out_comp - vold)))) < tol
         fprintf('PDE Converges');
     end
 
@@ -391,7 +389,7 @@ hr = r(2) - r(1);
 hk = k(2) - k(1);
 
 dt = 0.5;
-tol = 1e-10;
+tol = 1e-16;
 
 [r_mat,k_mat] = ndgrid(r,k); 
 
@@ -399,7 +397,6 @@ v0 = (alpha).*r_mat+(1-alpha).*k_mat; % initial guess
 v1_initial = v0.*ones(size(r_mat));
 out = v0;
 vold = v0 .* ones(size(v0));
-timeDerivative = [];
 iter = 1;
 
 v0 = v0.*ones(size(v0));
@@ -456,11 +453,11 @@ model.dt   = dt;
 out = solveCGNatural(stateSpace, model);
 out_comp = reshape(out,size(v0)).*ones(size(r_mat));
     
-disp(['Error: ', num2str(max(max(max(abs(out_comp - v1_initial) / dt))))])
+disp(['Error: ', num2str(max(max(max(abs(out_comp - v1_initial)))))])
 v0 = v0.*ones(size(v0));
 v0 = reshape(out,size(v0));
 
-while (max(max(max(abs(out_comp - vold) / dt)))) > tol 
+while (max(max(max(abs(out_comp - vold))))) > tol 
    tic
    vold = v0 .* ones(size(v0));
    
@@ -517,8 +514,7 @@ while (max(max(max(abs(out_comp - vold) / dt)))) > tol
     out_comp = reshape(out,size(v0)).*ones(size(r_mat));
 
     iter = iter+1;
-    disp(['Diff: ', num2str(max(max(max(abs(out_comp - vold) / dt)))),' Number of Iters: ',num2str(iter)])
-    timeDerivative = [timeDerivative max(max(max(abs(out_comp - vold) / dt)))];
+    disp(['Diff: ', num2str(max(max(max(abs(out_comp - vold))))),' Number of Iters: ',num2str(iter)])
 
     v0 = v0.*ones(size(v0));
     v0 = reshape(out,size(v0));
@@ -526,7 +522,7 @@ while (max(max(max(abs(out_comp - vold) / dt)))) > tol
     pde_error = A.*v0+B_r.*v0_dr+B_k.*v0_dk+C_rr.*v0_drr+C_kk.*v0_dkk+D;
     disp(['PDE Error: ', num2str(max(max(max(abs(pde_error)))))])
     
-    if (max(max(abs(out_comp - vold) / dt))) < tol
+    if (max(max(abs(out_comp - vold)))) < tol
         fprintf('PDE Converges');
     end
 
