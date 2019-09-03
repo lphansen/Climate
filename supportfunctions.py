@@ -1,4 +1,6 @@
-def finite_diff(data, dim, order, dlt, cap = None):  
+import numpy as np
+
+def finiteDiff(data, dim, order, dlt, cap = None):  
 # compute the central difference derivatives for given input and dimensions
     res = np.zeros(data.shape)
     if order == 1:                    # first order derivatives
