@@ -1,8 +1,10 @@
 # Growth Damage Model
 
-## Sequence for running code:
- 1. HJB.m: This is the main file for solving the model's HJB equation. 
- 2. Sims.m: This code simulates the model based upon the solution to the HJB equation.
- 3. WorstCase.m: This calculates the worst case distributions under each damage equation.
- 4. SCC_EX.m: Solves the Feynman-Kac equation associated with the model, yielding the external component of the social cost of carbon.
- 5. Graph_SCC.m: This pieces together relevant components from the HJB and F-K equations to construct and plot different pieces of the social cost of carbon.
+## Code Explanation:
+The directory contains files corresponding to growth damage model from the paper. The four files are as below:
+1. AmbiguityAverse.m : This generates results for the ambiguity averse model.
+2. AmbiguityNeutral.m : This generates results for ambiguity neutral model
+3. quad_points_hermite : This generates weights and points for hermite quadrature
+4. TCRE_MacDougallEtAl2017_update.csv : Parameter estimates from MacDougal et. al (2017)
+
+To generate paper results, first set up the solvers (see instructions for solvers). Next run AmbiguityAverse.m and AmbiguityNeutral.m. Refer back to the notebook for further details.
