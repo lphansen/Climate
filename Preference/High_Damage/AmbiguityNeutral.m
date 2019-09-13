@@ -537,16 +537,33 @@ clear all;
 close all;
 
 file1 = [pwd, '/HJB_NonLinPref_Cumu_NoUn_Sims'];
-Model1 = load(file1,'hists2','i_k_hists2','e_hists2','f_hists2','A_O','alpha','theta');
+Model1 = load(file1,'hists2');
 data1 = Model1.hists2;
-i_k = Model1.i_k_hists2;
-e = Model1.e_hists2;
-f = Model1.f_hists2;
-A_O = Model1.A_O;
-alpha = Model1.alpha;
-theta = Model1.theta;
 
-SCC = 1000*mean(((alpha./(1-alpha)).*(A_O.*squeeze(data1(:,2,:))-i_k-f)./e),2);
+file2 = [pwd, '/HJB_NonLinPref_Cumu_NoUn'];
+Model2 = load(file2,'r_mat','k_mat','t_mat','i_k','f','e','A_O','alpha','delta','theta');
+r_mat = Model2.r_mat;
+k_mat = Model2.k_mat;
+t_mat = Model2.t_mat;
+theta = Model2.theta;
+A_O = Model2.A_O;
+alpha = Model2.alpha;
+delta = Model2.delta;
+f = Model2.f;
+e = Model2.e;
+i_k = Model2.i_k;
+
+MC = delta.*(1-alpha)./(A_O.*exp(k_mat)-i_k.*exp(k_mat)-f.*exp(r_mat));
+ME = delta.*alpha./(e.*exp(r_mat));
+SCC = 1000*ME./MC;
+SCC_func = griddedInterpolant(r_mat,t_mat,k_mat,SCC,'spline');
+
+ for time=1:400
+     for path=1:1
+        SCC_values(time,path) = SCC_func(log((data1(time,1,path))),(data1(time,3,path)),log((data1(time,2,path))));
+     end
+ end
+SCC = mean(SCC_values,2);
 
 s1 = num2str(1./theta,4);
 s1 = strrep(s1,'.','');
