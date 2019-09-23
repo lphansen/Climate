@@ -25,6 +25,8 @@ import plotly.graph_objs as go
 from plotly.subplots import make_subplots
 from plotly.offline import init_notebook_mode, iplot
 from scipy.interpolate import CubicSpline
+from copy import deepcopy
+
 
 sys.stdout.flush()
 
@@ -83,24 +85,9 @@ growthParams['F̄'] = 13
 growthParams['μ1'] = 1.272e-02
 growthParams['μ2'] = -4.871e-04
 growthParams['ξₚ'] = 1 / 200  
+growthParams['βMcD'] = McD / 1000.0
 
 # Specification for Model's solver in preference setting
-preferenceSpecs = OrderedDict({})
-preferenceSpecs['tol'] = 1e-10
-preferenceSpecs['ε'] = 0.5
-preferenceSpecs['R_min'] = 0
-preferenceSpecs['R_max'] = 9
-preferenceSpecs['nR'] = 30
-preferenceSpecs['F_min'] = 0
-preferenceSpecs['F_max'] = 4000
-preferenceSpecs['nF'] = 40
-preferenceSpecs['K_min'] = 0
-preferenceSpecs['K_max'] = 9
-preferenceSpecs['nK'] = 25
-preferenceSpecs['quadrature'] = 'legendre'
-preferenceSpecs['n'] = 30
-
-# Specification for Model's solver in growth setting
 preferenceSpecs = OrderedDict({})
 preferenceSpecs['tol'] = 1e-10
 preferenceSpecs['ε'] = 0.5
@@ -130,24 +117,36 @@ growthSpecs['K_min'] = 0
 growthSpecs['K_max'] = 9
 growthSpecs['nK'] = 25
 
+compSpecs = deepcopy(preferenceSpecs)
+compSpecs['R_max'] = 12
+compSpecs['F_max'] = 4000
+compSpecs['K_max'] = 12
+compSpecs['nF'] = 40
+compSpecs['tol'] = 1e-16
+
 class GridInterp():
 
     def __init__(self, grids, values, method = 'Linear'):
 
         # unpacking
         self.grids = grids
-        (self.xs, self.ys, self.zs) = grids
-        self.nx = len(self.xs)
-        self.ny = len(self.ys)
-        self.nz = len(self.zs)
+        self.l = len(values.shape)
+        if self.l == 3:
+            (self.xs, self.ys, self.zs) = grids
+            self.nx = len(self.xs)
+            self.ny = len(self.ys)
+            self.nz = len(self.zs)
+        else:
+            (self.xs, self.ys) = grids
+            self.nx = len(self.xs)
+            self.ny = len(self.ys)
         
         self.values = values
 
-        assert (self.nx, self.ny, self.nz) == values.shape, "ValueError: Dimensions not match"
+        # assert (self.nx, self.ny, self.nz) == values.shape, "ValueError: Dimensions not match"
         self.method = method
-        self.REs = None
 
-    def get_value(self, x, y, z):
+    def get_value(self, x, y, z = None):
 
         if self.method == 'Linear':
             
@@ -162,8 +161,12 @@ class GridInterp():
             func2 = CubicSpline(self.ys, yzSpace)
             zSpace = func2(y)
             
-            func3 = CubicSpline(self.zs, zSpace)
-            return func3(z)
+            if z is None:
+                return zSpace
+
+            else:
+                func3 = CubicSpline(self.zs, zSpace)
+                return func3(z)
 
         else:
             raise ValueError('Method Not Supported')
@@ -459,8 +462,8 @@ class modelSolutions():
                        name = 'Ambiguity Neutral', line = dict(color = "rgb(49,54,149)", dash='solid', width = 2),\
                                showlegend = True))
 
-            fig.add_trace(go.Scatter(x = x, y = self.xiModels[1 / 4500].SCCs['SCC'], visible = True,
-                           name = 'Ambiguity Averse'.format(ξ), line = dict(color = "rgb(165,0,38)", dash='solid', width = 2),\
+            fig.add_trace(go.Scatter(x = x, y = self.xiModels[1 / 4500].SCCs['SCC'], visible = True,\
+                           name = 'Ambiguity Averse', line = dict(color = "rgb(165,0,38)", dash='solid', width = 2),\
                                    showlegend = True))
 
             fig.data[10].visible = True
@@ -645,7 +648,6 @@ class modelSolutions():
                 fig = dict(data = line_data, layout = layout)
                 iplot(fig)
 
-
     def SCCDecomposePlot(self, key = 'Weighted'):
 
         if key == 'Low':
@@ -827,8 +829,7 @@ class modelSolutions():
 
 
         fig.show()
-    
-
+        
 class preferenceModel():
 
     def __init__(self, params = preferenceParams, specs = preferenceSpecs):
@@ -933,7 +934,6 @@ class preferenceModel():
         self.REs = {}
         self.fordebug = None
         
-
     def __PDESolver__(self, A, B_r, B_f, B_k, C_rr, C_ff, C_kk, D, solverType):
 
         if solverType == 'False Trasient':
@@ -959,7 +959,7 @@ class preferenceModel():
             return out
 
         else:
-            raise VauleError('Solver Type Not Supported')
+            raise ValueError('Solver Type Not Supported')
             return None
 
     def solveHJB(self, damageSpec):
@@ -1020,8 +1020,9 @@ class preferenceModel():
         b = β𝘧 + 5 * np.sqrt(σᵦ)
 
         self.v0 = κ * R_mat + (1-κ) * K_mat - β𝘧 * F_mat
-        v1_initial = self.v0 * np.ones(R_mat.shape)
         episode = 0
+        out_comp = None
+        vold = self.v0.copy()
 
         while self.status == 0 or np.max(abs(out_comp - vold) / self.ε) > self.tol:
 
@@ -1564,7 +1565,7 @@ class preferenceModel():
                 return SCC2_tilt_func_r.get_value(np.log(x[0]), x[2], np.log(x[1]))
 
 
-            ME2b = -self.expec_e_sum * np.exp(-R_mat)
+            ME2b = -1 * self.expec_e_sum * np.exp(-R_mat)
             SCC2_V_d_tilt_ = 1000 * ME2b / MC
             SCC2_V_d_tilt_func_r = GridInterp(gridpoints, SCC2_V_d_tilt_, method)
             def SCC2_V_d_tilt_func(x):
@@ -1706,7 +1707,7 @@ class preferenceModel():
                 self.Dists['Nordhaus_year' + str(int((tm) / 4))] = nordhaus
                 self.Dists['Weighted_year' + str(int((tm) / 4))] = nordhaus * Dists_weight + weitzman * (1 - Dists_weight)
 
-class preferenceModel():
+class growthModel():
 
     def __init__(self, params = growthParams, specs = growthSpecs):
 
@@ -1736,7 +1737,7 @@ class preferenceModel():
         self.modelParams['σᵦ'] = σᵦ
         self.modelParams['λ'] = 1.0 / σᵦ
 
-        μ = np.matrix([-params['μ1'], -params['μ2'] * 2])
+        μ = np.array([-params['μ1'], -params['μ2'] * 2])
         σ = np.matrix([[params['σ1'] ** 2, params['ρ12']], 
                         [params['ρ12'], params['σ2'] ** 2]])
         Σ = np.matrix([[σᵦ, 0, 0], 
@@ -1750,16 +1751,15 @@ class preferenceModel():
 
         At = np.linalg.cholesky(σ)
         x = np.zeros([2,9])
-        tmp = [-μ1,-μ2 * 2]
-        x[:,0] = tmp + At.dot([gamm1[0], gamm2[0]])
-        x[:,1] = tmp + At.dot([gamm1[0], gamm2[1]])
-        x[:,2] = tmp + At.dot([gamm1[0], gamm2[2]])
-        x[:,3] = tmp + At.dot([gamm1[1], gamm2[0]])
-        x[:,4] = tmp + At.dot([gamm1[1], gamm2[1]])
-        x[:,5] = tmp + At.dot([gamm1[1], gamm2[2]])
-        x[:,6] = tmp + At.dot([gamm1[2], gamm2[0]])
-        x[:,7] = tmp + At.dot([gamm1[2], gamm2[1]])
-        x[:,8] = tmp + At.dot([gamm1[2], gamm2[2]])
+        x[:,0] = μ + At.dot([gamm1[0], gamm2[0]])
+        x[:,1] = μ + At.dot([gamm1[0], gamm2[1]])
+        x[:,2] = μ + At.dot([gamm1[0], gamm2[2]])
+        x[:,3] = μ + At.dot([gamm1[1], gamm2[0]])
+        x[:,4] = μ + At.dot([gamm1[1], gamm2[1]])
+        x[:,5] = μ + At.dot([gamm1[1], gamm2[2]])
+        x[:,6] = μ + At.dot([gamm1[2], gamm2[0]])
+        x[:,7] = μ + At.dot([gamm1[2], gamm2[1]])
+        x[:,8] = μ + At.dot([gamm1[2], gamm2[2]])
 
         w = np.array([[w1[0],w1[0],w1[0],w1[1],w1[1],w1[1],w1[2],w1[2],w1[2]],
                [w2[0],w2[1],w2[2],w2[0],w2[1],w2[2],w2[0],w2[1],w2[2]]])
@@ -1770,7 +1770,7 @@ class preferenceModel():
 
         vals = np.linspace(0,30,100)
 
-        dee = np.matrix([-μ1 + -μ2 * 2, β𝘧, β𝘧])
+        # dee = np.matrix([-μ1 + -μ2 * 2, β𝘧, β𝘧])
         # σ𝘥  = float(np.sqrt(dee * Σ * dee.T))
 
         weight = np.zeros(9)
@@ -1794,7 +1794,7 @@ class preferenceModel():
         # Specifying model types and solver arguments
         self.tol = specs['tol']
         self.ε = specs['ε']
-        self.n = specs['n']
+        # self.n = specs['n']
         self.status = 0
         self.stateSpace = np.hstack([self.R_mat.reshape(-1,1,order = 'F'),
             self.F_mat.reshape(-1,1,order = 'F'), self.K_mat.reshape(-1,1,order = 'F')])
@@ -1842,7 +1842,6 @@ class preferenceModel():
         self.Dists = {}
         self.REs = {}
         
-
     def __PDESolver__(self, A, B_r, B_f, B_k, C_rr, C_ff, C_kk, D, solverType):
 
         if solverType == 'False Trasient':
@@ -1868,7 +1867,7 @@ class preferenceModel():
             return out
 
         else:
-            raise VauleError('Solver Type Not Supported')
+            raise ValueError('Solver Type Not Supported')
             return None
 
     def solveHJB(self):
@@ -1892,12 +1891,11 @@ class preferenceModel():
         F̄ = self.modelParams['F̄']
         ξₚ = self.modelParams['ξₚ']
         β𝘧 = self.modelParams['β𝘧']
-        σᵦ = self.modelParams['σᵦ']
+        # σᵦ = self.modelParams['σᵦ']
         λ = self.modelParams['λ']
         hR = self.hR
         hK = self.hK
         hF = self.hF
-        n = self.n
         R_mat = self.R_mat
         F_mat = self.F_mat
         K_mat = self.K_mat
@@ -1905,7 +1903,7 @@ class preferenceModel():
         gamma0 = self.gamma0
         gamma1 = self.gamma1
         gamma2 = self.gamma2
-        self.v0 = κ * R_mat + (1-κ) * K_mat - β𝘧 * F_mat
+        self.v0 = κ * R_mat + (1-κ) * K_mat
         episode = 0
 
         while episode == 0 or np.max(abs((out_comp - vold))) > self.tol:
@@ -1975,7 +1973,7 @@ class preferenceModel():
 
             A = -δ * np.ones(R_mat.shape)
             B_r = -e_star + ψ0 * (self.j ** ψ1) - 0.5 * (σ𝘳 ** 2)
-            B_k = μ̄ₖ + ϕ0 * np.log(1 + self.i * ϕ1) - 0.5 * `(σ𝘬 ** 2)
+            B_k = μ̄ₖ + ϕ0 * np.log(1 + self.i * ϕ1) - 0.5 * (σ𝘬 ** 2)
             B_f = e_star * np.exp(R_mat)
             C_rr = 0.5 * σ𝘳 ** 2 * np.ones(R_mat.shape)
             C_kk = 0.5 * σ𝘬 ** 2 * np.ones(R_mat.shape)
@@ -2015,6 +2013,7 @@ class preferenceModel():
         ϕ0 = self.modelParams['ϕ0']
         ϕ1 = self.modelParams['ϕ1']
         μ̄ₖ = self.modelParams['μ̄ₖ'] 
+        F̄ = self.modelParams['F̄']
 
         R_mat = self.R_mat
         F_mat = self.F_mat
@@ -2023,9 +2022,9 @@ class preferenceModel():
         gamma1 = self.gamma1
         gamma2 = self.gamma2
 
-        v0_dr = finiteDiff(self.v0,0,1,hR,1e-8) 
-        v0_df = finiteDiff(self.v0,1,1,hF)
-        v0_dk = finiteDiff(self.v0,2,1,hK)
+        v0_dr = finiteDiff(self.v0,0,1,self.hR,1e-8) 
+        v0_df = finiteDiff(self.v0,1,1,self.hF)
+        v0_dk = finiteDiff(self.v0,2,1,self.hK)
 
         # initial points
         R_0 = 650
@@ -2064,7 +2063,7 @@ class preferenceModel():
         π̃_norm_func = []
         π̃_norm_func_r = []
 
-        for ite in range(len(π̃_norm_)):
+        for ite in range(len(self.π̃_norm_)):
             π̃_norm_func_r.append(GridInterp(gridpoints, self.π̃_norm_[ite], method))
             π̃_norm_func.append(lambda x, ite = ite: π̃_norm_func_r[ite].get_value(np.log(x[0]), x[2], np.log(x[1])))
 
@@ -2082,7 +2081,7 @@ class preferenceModel():
         tilt_driftK_r = []
         tilt_driftK = []
 
-        for ite in range(len(π̃_norm_)):
+        for ite in range(len(self.π̃_norm_)):
             a.append(gamma0[ite] + gamma1[ite] * F̄ + 0.5 * gamma2[ite] * F̄ ** 2)
             b.append(F_mat * (gamma1[ite] + gamma2[ite] * F̄))
             c.append(gamma2[ite] * F_mat ** 2)
@@ -2096,14 +2095,14 @@ class preferenceModel():
             
         def Gamma_base(x):
             res = 0
-            for ite in range(len(weight)):
+            for ite in range(len(self.weight)):
                 res += self.weight[ite] * base_driftK[ite](x)
             return res
 
         def Gamma_tilted(x):
             res = 0
-            for ite in range(len(weight)):
-                res += self.π̃_norm_func[ite](x) * tilt_driftK[ite](x)
+            for ite in range(len(self.weight)):
+                res += π̃_norm_func[ite](x) * tilt_driftK[ite](x)
             return res
 
         def muR(x):
@@ -2191,6 +2190,11 @@ class preferenceModel():
 
     def SCCDecompose(self, method = 'Spline'):
         gridpoints = (self.R, self.F, self.K)
+        T = 100
+        pers = 4 * T
+        dt = T / pers
+        nDims = 4
+        its = 1
 
         # Unpacking necesssary variables
         F̄ = self.modelParams['F̄']
@@ -2214,6 +2218,9 @@ class preferenceModel():
         gamma1 = self.gamma1
         gamma2 = self.gamma2
 
+        hR = self.hR
+        hF = self.hF
+        hK = self.hK
         v0_dr = finiteDiff(self.v0,0,1,hR,1e-8) 
         v0_df = finiteDiff(self.v0,1,1,hF)
         v0_dk = finiteDiff(self.v0,2,1,hK)
@@ -2247,7 +2254,7 @@ class preferenceModel():
         D = flow_base
 
         out = self.__PDESolver__(A, B_r, B_f, B_k, C_rr, C_ff, C_kk, D, 'Feyman Kac')
-        v0_base = out[2].reshape(v0.shape, order="F")
+        v0_base = out[2].reshape(self.v0.shape, order="F")
         self.v0_base = v0_base
 
         v0_dr_base = finiteDiff(v0_base,0,1,hR,1e-8) 
@@ -2291,7 +2298,7 @@ class preferenceModel():
         D = flow_tilted
 
         out = self.__PDESolver__(A, B_r, B_f, B_k, C_rr, C_ff, C_kk, D, 'Feyman Kac')
-        v0_worst = out[2].reshape(v0.shape, order="F")
+        v0_worst = out[2].reshape(self.v0.shape, order="F")
         self.v0_worst = v0_worst
 
         v0_dr_worst = finiteDiff(v0_worst,0,1,hR,1e-8) 
@@ -2346,11 +2353,11 @@ class preferenceModel():
 
         for tm in range(pers):
             for path in range(its):   # path is its?
-                SCC_values[tm, path] = SCC_func(hists[tm,:,path])
-                SCC1_values[tm, path] = SCC1_func(hists[tm,:,path])
-                SCC2_base_values[tm, path] = SCC2_base_func(hists[tm,:,path]) 
-                SCC2_tilt_values[tm, path] = SCC2_tilt_func(hists[tm,:,path])
-                SCC2_base_a_values[tm, path] = SCC2_base_a_func(hists[tm,:,path])
+                SCC_values[tm, path] = SCC_func(self.hists[tm,:,path])
+                SCC1_values[tm, path] = SCC1_func(self.hists[tm,:,path])
+                SCC2_base_values[tm, path] = SCC2_base_func(self.hists[tm,:,path]) 
+                SCC2_tilt_values[tm, path] = SCC2_tilt_func(self.hists[tm,:,path])
+                SCC2_base_a_values[tm, path] = SCC2_base_a_func(self.hists[tm,:,path])
                 
         SCC_total = np.mean(SCC_values,axis = 1)
         SCC_private = np.mean(SCC1_values,axis = 1)
@@ -2371,11 +2378,8 @@ class preferenceModel():
         σᵦ = self.modelParams['σᵦ']
         gridpoints = (self.R, self.F, self.K)
         pers = 400
-        ξₚ = self.modelParams['ξₚ']
 
         # probabilities
-        a = β𝘧 - 5 * np.sqrt(σᵦ)
-        b = β𝘧 + 5 * np.sqrt(σᵦ)
         a_10std = β𝘧 - 10 * np.sqrt(σᵦ)
         b_10std = β𝘧 + 10 * np.sqrt(σᵦ)
         beta_f_space = np.linspace(a_10std,b_10std,200)
@@ -2402,7 +2406,10 @@ class preferenceModel():
             π̃_norm_func_r.append(GridInterp(gridpoints, self.π̃_norm_[ite], method))
             π̃_norm_func.append(lambda x, ite = ite: π̃_norm_func_r[ite].get_value(np.log(x[0]), x[2], np.log(x[1])))
 
-
+        RE_func_r = GridInterp(gridpoints, self.RE, method)
+        def RE_func(x):
+            return RE_func_r.get_value(np.log(x[0]), x[2], np.log(x[1]))
+        
         hists_mean = np.mean(self.hists, axis = 2)
         RE_plot = np.zeros(pers)
         weight_plot = [np.zeros([pers,1]) for ite in range(len(π̃_norm_func))]
@@ -2433,46 +2440,393 @@ class preferenceModel():
                 lambda_tilde_.append(λ̃_func[ite]([R0, K0, F0]))
                 tilt_dist_.append(norm.pdf(beta_f_space, mean_distort_[ite] + βf, 1 / np.sqrt(lambda_tilde_[ite])))
                 
-            weighted = sum(w * til for w, til in zip(weights_prob, tilt_dist_) )
+            weighted = sum(w * til for w, til in zip(weights_prob, tilt_dist_))
             self.Dists['Year' + str(int((tm) / 4))] = dict(tilt_dist = tilt_dist_, weighted = weighted, weights = weights_prob)
 
+class competitiveModel():
+    def __init__(self, params = preferenceParams, specs = compSpecs, basemodel = None):    
+        self.basemodel = basemodel
+        
+        self.modelParams = {}
+        self.modelParams['δ'] = params['δ']
+        self.modelParams['κ'] = params['κ']
+        self.modelParams['σ𝘨'] = params['σ𝘨']
+        self.modelParams['σ𝘬'] = params['σ𝘬']
+        self.modelParams['σ𝘳'] = params['σ𝘳'] 
+        self.modelParams['α'] = params['α']
+        self.modelParams['ϕ0'] = params['ϕ0']
+        self.modelParams['ϕ1'] = params['ϕ1']
+        self.modelParams['μ̄ₖ'] = params['μ̄ₖ']
+        self.modelParams['ψ0'] = params['ψ0']
+        self.modelParams['ψ1'] = params['ψ1']
+        # parameters for damage function
+        self.modelParams['power'] = params['power']
+        self.modelParams['γ1'] = params['γ1']
+        self.modelParams['γ2'] = params['γ2']
+        self.modelParams['γ2_plus'] = params['γ2_plus']
+        self.modelParams['σ1'] = params['σ1']
+        self.modelParams['σ2'] = params['σ2']
+        self.modelParams['ρ12'] = params['ρ12']
+        self.modelParams['F̄'] = params['F̄']
+        self.modelParams['crit'] = params['crit']
+        self.modelParams['F0'] = params['F0']
+        self.modelParams['ξₚ'] = params['ξₚ']
+        β𝘧 = np.mean(params['βMcD'])
+        self.modelParams['β𝘧'] = β𝘧
+        σᵦ = np.var(params['βMcD'], ddof = 1)
+        self.modelParams['σᵦ'] = σᵦ
+        self.modelParams['λ'] = 1.0 / σᵦ
 
+        σ = np.matrix([[params['σ1'] ** 2, params['ρ12']], 
+                        [params['ρ12'], params['σ2'] ** 2]])
+        Σ = np.matrix([[σᵦ, 0, 0], 
+                       [0, params['σ1'] ** 2, params['ρ12']], 
+                       [0, params['ρ12'], params['σ2'] ** 2]])
+        dee = np.matrix(
+            [params['γ1'] + params['γ2'] * params['F0'] + params['γ2_plus']\
+             * (params['F0'] - params['F̄']) ** 2 * (params['F0'] >= 2), 
+            β𝘧, β𝘧 * params['F0']])
+
+        self.modelParams['σ𝘥'] = float(np.sqrt(dee * Σ * dee.T))
+        self.modelParams['xi_d'] = -1 * (1 - self.modelParams['κ'])
+        # self.modelParams['γ̄2_plus'] = self.modelParams['weight'] * 0 + (1 - self.modelParams['weight']) * self.modelParams['γ2_plus']
+        
+        self._create_grid(specs)
+        self.weight = None
+        self.γ̄2_plus = None  # This is gammabar_2_plus, not the same as previous gamma2_plus
+
+        self.v0 = None
+
+        self._initiate_interim_vars()
+
+        # Specifying model types and solver arguments
+        self.damageSpec = None
+        self.quadrature = specs['quadrature']
+        self.tol = specs['tol']
+        self.ε = specs['ε']
+        self.n = specs['n']
+        self.status = 0
+        self.stateSpace = np.hstack([self.R_mat.reshape(-1,1,order = 'F'),
+            self.K_mat.reshape(-1,1,order = 'F')])
+
+    def _create_grid(self, specs):
+
+        self.R = np.linspace(specs['R_min'],specs['R_max'], specs['nR'])
+        self.K = np.linspace(specs['K_min'],specs['K_max'], specs['nK'])
+
+        self.hR = self.R[1] - self.R[0]
+        self.hK = self.K[1] - self.K[0]
+
+        (self.R_mat,  self.K_mat) = np.meshgrid(self.R, self.K, indexing = 'ij')
+        
+    def _initiate_interim_vars(self):
+
+        self.e = np.zeros(self.R_mat.shape)
+        self.i = np.zeros(self.R_mat.shape)
+        self.j = np.zeros(self.R_mat.shape)
+        self.v0 = np.zeros(self.R_mat.shape)
+        self.π̃1 = np.zeros(self.R_mat.shape)
+        self.π̃2 = np.zeros(self.R_mat.shape)
+        self.β̃1 = np.zeros(self.R_mat.shape)
+        self.λ̃1 = np.zeros(self.R_mat.shape)
+        self.R1 = np.zeros(self.R_mat.shape)
+        self.R2 = np.zeros(self.R_mat.shape)
+        self.RE = np.zeros(self.R_mat.shape)
+        self.beta_f_space = None
+        self.hists = None
+        self.i_hists = None
+        self.j_hists = None
+        self.e_hists = None
+        self.v0_base = None
+        self.v0_worst = None
+        self.expec_e_sum = None
+        self.SCCs = {}
+        self.Dists = {}
+        self.REs = {}
+        self.fordebug = None
+        
+    def __PDESolver__(self, A, B_r, B_k, C_rr, C_kk, D, solverType):
+
+        if solverType == 'False Trasient':
+
+            A = A.reshape(-1,1,order = 'F')
+            B = np.hstack([B_r.reshape(-1,1,order = 'F'), B_k.reshape(-1,1,order = 'F')])
+            C = np.hstack([C_rr.reshape(-1,1,order = 'F'), C_kk.reshape(-1,1,order = 'F')])
+            D = D.reshape(-1,1,order = 'F')
+            v0 = self.v0.reshape(-1,1,order = 'F')
+            # v1 = v0
+            out = SolveLinSys1.solvels(self.stateSpace, A, B, C, D, v0, self.ε)
+            # print(np.max(abs(v1 - v0)))
+            return out
+
+        elif solverType == 'Feyman Kac':
+            A = A.reshape(-1, 1, order='F')
+            B = np.hstack([B_r.reshape(-1, 1, order='F'), B_k.reshape(-1, 1, order='F')])
+            C = np.hstack([C_rr.reshape(-1, 1, order='F'), C_kk.reshape(-1, 1, order='F')])
+            D = D.reshape(-1, 1, order='F')
+            v0 = self.v0.reshape(-1, 1, order='F') * 0
+            ε = 1.0
+            out = SolveLinSys2.solvels(self.stateSpace, A, B, C, D, v0, ε)
+            return out
+
+        else:
+            raise ValueError('Solver Type Not Supported')
+            return None
+
+    def solveHJB(self, damageSpec):
+        # damageSpec ~ dictionary type that documents the 
+        start_time = time.time()
+
+        if damageSpec == 'High':
+            self.weight = 0.0
+        elif damageSpec == 'Low':
+            self.weight = 1.0
+        else:
+            self.weight = 0.5
+
+        # alter γ̄2_plus damage function additive term according to the model weight
+        self.γ̄2_plus = self.weight * 0 + (1 - self.weight) * self.modelParams['γ2_plus']
+
+        # unpacking the variables from model class
+        δ  = self.modelParams['δ']
+        κ  = self.modelParams['κ']
+        σ𝘨 = self.modelParams['σ𝘨']
+        σ𝘬 = self.modelParams['σ𝘬']
+        σ𝘳 = self.modelParams['σ𝘳']
+        α  = self.modelParams['α']
+        ϕ0 = self.modelParams['ϕ0']
+        ϕ1 = self.modelParams['ϕ1']
+        μ̄ₖ = self.modelParams['μ̄ₖ'] 
+        ψ0 = self.modelParams['ψ0']
+        ψ1 = self.modelParams['ψ1']
+        power = self.modelParams['power']
+        γ1 = self.modelParams['γ1']
+        γ2 = self.modelParams['γ2']
+        γ2_plus = self.modelParams['γ2_plus']
+        σ1 = self.modelParams['σ1']
+        σ2 = self.modelParams['σ2']
+        ρ12 = self.modelParams['ρ12'] 
+        F̄ = self.modelParams['F̄']
+        crit = self.modelParams['crit']
+        F0 = self.modelParams['F0']
+        ξₚ = self.modelParams['ξₚ']
+        β𝘧 = self.modelParams['β𝘧']
+        σᵦ = self.modelParams['σᵦ']
+        λ = self.modelParams['λ']
+        σ𝘥 = self.modelParams['σ𝘥']
+        xi_d = self.modelParams['xi_d']
+        γ̄2_plus = self.γ̄2_plus
+        hR = self.hR
+        hK = self.hK
+        n = self.n
+        quadrature = self.quadrature
+
+
+        R_mat = self.R_mat
+        K_mat = self.K_mat
+
+        self.v0 = κ * R_mat + (1-κ) * K_mat
+        episode = 0
+        out_comp = None
+        vold = self.v0.copy()
+
+        while self.status == 0 or np.max(abs(out_comp - vold) / self.ε) > self.tol:
+
+            vold = self.v0.copy()
+            # Applying finite difference scheme to the value function
+            v0_dr = finiteDiff(self.v0,0,1,hR,1e-8) 
+            v0_dk = finiteDiff(self.v0,1,1,hK)
+
+            v0_drr = finiteDiff(self.v0,0,2,hR)
+            v0_dkk = finiteDiff(self.v0,1,2,hK)
+
+            if self.status == 0:
+                # First time into the loop
+                # B1 = v0_dr - xi_d * (γ1 + γ2 * F_mat * β𝘧 + γ2_plus * (F_mat * β𝘧 - F̄) ** (power - 1) * (F_mat >= (crit / β𝘧))) * β𝘧 * np.exp(R_mat) - v0_df * np.exp(R_mat)
+                # C1 = - δ * κ
+                self.e = δ * κ / v0_dr
+                Acoeff = np.exp(R_mat - K_mat)
+                Bcoeff = δ * (1-κ) / (np.exp(-R_mat + K_mat) * v0_dr * ψ0 * 0.5) + v0_dk * ϕ0 / (np.exp(-R_mat + K_mat) * v0_dr * ψ0 * 0.5)
+                Ccoeff = -α  - 1 / ϕ1
+                self.j = ((-Bcoeff + np.sqrt(Bcoeff ** 2 - 4 * Acoeff * Ccoeff)) / (2 * Acoeff)) ** 2
+                self.i = (v0_dk * ϕ0 / (np.exp(-R_mat + K_mat) * v0_dr * ψ0 * 0.5)) * (self.j ** 0.5) - 1 / ϕ1
+            else:
+                self.e = δ * κ / v0_dr
+                self.j = ((α + 1 / ϕ1) * np.exp(-R_mat + K_mat) * (v0_dr * ψ0 * ψ1) / ((v0_dr * ψ0 * ψ1) * self.j ** (ψ1) + (δ * (1-κ) + v0_dk * ϕ0))) ** (1 / (1 - ψ1))
+                self.j = self.j * (v0_dr > 1e-8)
+                self.i = ((v0_dk * ϕ0 / (np.exp(-R_mat + K_mat) * v0_dr * ψ0 * ψ1)) * (self.j ** (1 - ψ1)) - 1 / ϕ1) * (v0_dr > 1e-8) + (v0_dr <= 1e-8) * (v0_dk * ϕ0 * α - δ * (1-κ) / ϕ1) / (δ * (1-κ) + v0_dk * ϕ0)
+
+            A = -δ * np.ones(R_mat.shape)
+            B_r = -self.e + ψ0 * (self.j ** ψ1) - 0.5 * (σ𝘳 ** 2)
+            B_k = μ̄ₖ + ϕ0 * np.log(1 + self.i * ϕ1) - 0.5 * (σ𝘬 ** 2)
+            C_rr = 0.5 * σ𝘳 ** 2 * np.ones(R_mat.shape)
+            C_kk = 0.5 * σ𝘬 ** 2 * np.ones(R_mat.shape)
+            D = δ * κ * np.log(self.e) + δ * κ * R_mat + δ * (1 - κ) * (np.log(α - self.i - self.j * np.exp(R_mat - K_mat)) + K_mat)
+
+            out = self.__PDESolver__(A, B_r, B_k, C_rr, C_kk, D, 'False Trasient')
+            
+            out_comp = out[2].reshape(self.v0.shape,order = "F")
+
+            PDE_rhs = A * self.v0 + B_r * v0_dr + B_k * v0_dk + C_rr * v0_drr + C_kk * v0_dkk + D
+            PDE_Err = np.max(abs(PDE_rhs))
+            FC_Err = np.max(abs((out_comp - self.v0)))
+            if episode % 100 == 0:
+                print("Episode {:d}: PDE Error: {:.10f}; False Transient Error: {:.10f}; Iterations: {:d}; CG Error: {:.10f}" .format(episode, PDE_Err, FC_Err, out[0], out[1]))
+            episode += 1
+            self.v0 = out_comp
+            if self.status == 0:
+                self.status = 1
+
+        self.status = 2
+        print("Episode {:d}: PDE Error: {:.10f}; False Transient Error: {:.10f}; Iterations: {:d}; CG Error: {:.10f}" .format(episode, PDE_Err, FC_Err, out[0], out[1]))
+        print("--- %s seconds ---" % (time.time() - start_time))
+
+    def Simulate(self, method = 'Spline'):
+        T = 100
+        pers = 4 * T
+        dt = T/pers
+        nDims = 3
+        its = 1
+
+        # Unpacking necesssary variables
+        α = self.modelParams['α']
+        ψ0 = self.modelParams['ψ0']
+        ψ1 = self.modelParams['ψ1']
+        ϕ0 = self.modelParams['ϕ0']
+        ϕ1 = self.modelParams['ϕ1']
+        μ̄ₖ = self.modelParams['μ̄ₖ'] 
+
+        gridpoints = (self.R, self.K)
+
+        e_func_r = GridInterp(gridpoints, self.e, method)
+        def e_func(x):
+            return e_func_r.get_value(np.log(x[0]), np.log(x[1]))
+
+        j_func_r = GridInterp(gridpoints, self.j, method)
+        def j_func(x):
+            return max(j_func_r.get_value(np.log(x[0]), np.log(x[1])), 0)
+
+        i_func_r = GridInterp(gridpoints, self.i, method)
+        def i_func(x):
+            return i_func_r.get_value(np.log(x[0]), np.log(x[1]))
+
+        F_max_sim = max(self.basemodel.F)
+        R_max_sim = np.exp(max(self.R))
+        K_max_sim = np.exp(max(self.K))
+
+        F_min_sim = min(self.basemodel.F)
+        R_min_sim = np.exp(min(self.R))
+        K_min_sim = np.exp(min(self.K))
+
+        # initial points
+        R_0 = 650
+        K_0 = 80 / α
+        F_0 = 870 - 580
+        initial_val = np.array([R_0, K_0, F_0])
+
+        # function handles
+        def muR(x):
+            return -e_func(x) + ψ0 * j_func(x) ** ψ1
+        def muK(x): 
+            return (μ̄k + ϕ0 * np.log(1 + i_func(x) * ϕ1))
+        def muF(x):
+            return e_func(x) * x[0]
+        def sigmaR(x):
+            return np.zeros(x[:3].shape)
+        def sigmaK(x):
+            return np.zeros(x[:3].shape)
+        def sigmaF(x):
+            return np.zeros(x[:3].shape)
+
+        upperbounds = np.array([R_max_sim, K_max_sim, F_max_sim])
+        lowerbounds = np.array([R_min_sim, K_min_sim, F_min_sim])
+
+        self.hists = np.zeros([pers, nDims, its])
+        self.e_hists = np.zeros([pers,its])
+        self.j_hists = np.zeros([pers,its])
+        self.i_hists = np.zeros([pers,its])
+
+        for iters in range(0,its):
+            hist = np.zeros([pers,nDims])
+            e_hist = np.zeros([pers,1])
+            i_hist = np.zeros([pers,1])
+            j_hist = np.zeros([pers,1])
+                        
+            hist[0,:] = [R_0, K_0, F_0]
+            e_hist[0] = e_func(hist[0,:]) * hist[0,0]
+            i_hist[0] = i_func(hist[0,:]) * hist[0,1]
+            j_hist[0] = j_func(hist[0,:]) * hist[0,0]
+            
+            for tm in range(1,pers):
+                shock = norm.rvs(0,np.sqrt(dt),nDims)
+                # print(muR(hist[tm-1,:]))
+                hist[tm,0] = cap(hist[tm-1,0] * np.exp((muR(hist[tm-1,:])- 0.5 * sum((sigmaR(hist[tm-1,:])) ** 2))* dt + sigmaR(hist[tm-1,:]).dot(shock)),lowerbounds[0], upperbounds[0])
+                hist[tm,1] = cap(hist[tm-1,1] * np.exp((muK(hist[tm-1,:])- 0.5 * sum((sigmaK(hist[tm-1,:])) ** 2))* dt + sigmaK(hist[tm-1,:]).dot(shock)),lowerbounds[1], upperbounds[1])
+                hist[tm,2] = cap(hist[tm-1,2] + muF(hist[tm-1,:]) * dt + sigmaF(hist[tm-1,:]).dot(shock), lowerbounds[2], upperbounds[2])
+                
+                e_hist[tm] = e_func(hist[tm-1,:]) * hist[tm-1,0]
+                i_hist[tm] = i_func(hist[tm-1,:]) * hist[tm-1,1]
+                j_hist[tm] = j_func(hist[tm-1,:]) * hist[tm-1,0]
+                                
+            self.hists[:,:,iters] = hist
+            self.e_hists[:,[iters]] = e_hist
+            self.i_hists[:,[iters]] = i_hist
+            self.j_hists[:,[iters]] = j_hist
+            
+    def SCCDecompose(self, method = 'Spline'):
+        
 
 if __name__ == "__main__":
     # for key,val in preferenceParams.items():
     #   print(key,val)
     print(preferenceParams['μ̄ₖ'])
 
+    print("-----------Checking-------------------")
+    m1 = preferenceModel(preferenceParams, compSpecs)
 
-    print("----------------HJB-------------------")
+    m2 = competitiveModel(preferenceParams, compSpecs, m1)
+    m2.solveHJB('High')
+    for_check = loadmat('./MATLAB_Data/HJB_Comp.mat')
+    print("HJB Error: {}".format(np.max(abs(m2.v0 - for_check['v0']))))
 
-    # old_string = "didn't work"
-    # new_string = "worked"
-    # function()
+    m2.Simulate()
+    for_check = loadmat('./MATLAB_Data/compsims.mat')
+    print("Simulation Error: {}".format(np.max(abs(m2.hists[-1,:,0] - for_check['hists2'][-1,:3]))))
+    print("Simulation e Error: {}".format(np.max(abs(m2.e_hists[-1,0] - for_check['e_hists2'][-1,0]))))
 
-    if not os.path.isfile('./lowdmg.pickle'):
-        m = preferenceModel(preferenceParams, preferenceSpecs)
-        m.solveHJB('Low')
-        res = loadmat('./MATLAB_Data/HJB_NonLinPref_Cumu_NoUn')
-        print(np.max(abs(m.v0 - res['out_comp'])))
-        with open("lowdmg.pickle", "wb") as file_:
-            pickle.dump(m, file_, -1)
-    else:
-        m = pickle.load(open("lowdmg.pickle", "rb", -1))
+    # print("----------------HJB-------------------")
 
+    # if not os.path.isfile('./growth.pickle'):
+    #     m = growthModel(growthParams, growthSpecs)
+    #     m.solveHJB()
+    #     for_check = loadmat('./MATLAB_Data/HJB_NonLinGrowth.mat')
+    #     print(np.max(abs(for_check['out_comp'] -  m.v0)))
+    #     with open("growth.pickle", "wb") as file_:
+    #         pickle.dump(m, file_, -1)
+    # else:
+    #     m = pickle.load(open("growth.pickle", "rb", -1))
+    # for_check = loadmat('./MATLAB_Data/HJB_NonLinGrowth.mat')
+    # print(np.max(abs(for_check['out_comp'] -  m.v0)))
 
-    print("-------------Simulation---------------")
-    m.Simulate()
-    print(m.hists[-1,:,0])
-    res = loadmat('./MATLAB_Data/HJB_NonLinPref_Cumu_NoUn')
-    print(np.max(abs(m.j - res['f'])))
+    # print("-------------Simulation---------------")
+    # m.Simulate()
+    # for_check = loadmat('./MATLAB_Data/GrowthSims.mat')
+    # print(m.hists[-1,:,0] - for_check['hists2'][-1,:])
+    
 
-    print("------------SCCDecompose--------------")
-    m.SCCDecompose(AmbiguityNeutral = True)
-    # print(m.SCCs['SCC'])
+    # print("------------SCCDecompose--------------")
+    # m.SCCDecompose()
+    # for_check = loadmat('./MATLAB_Data/SCCgrowthfinal.mat')
+    # print(np.max(abs(np.squeeze(for_check['SCC_private']) - m.SCCs['SCC1'])))
+    # for_check = loadmat('./MATLAB_Data/SCC_mat_Cumu_worst_Growth.mat')
+    # print(np.max(abs(for_check['v0'] - m.v0_worst)))
 
-    print("------------ComputeProbs--------------")
+    # # print(m.SCCs['SCC'])
+
+    # print("------------ComputeProbs--------------")
 
     # m.computeProbs()
-    # print(m.Dists['Nordhaus_year100'])
+    # for_check = loadmat('./MATLAB_Data/Dist_50yr.mat')
+    # print(np.max(abs(for_check['weighted'] - m.Dists['Year50']['weighted'])))
+    # # print(m.Dists['Nordhaus_year100'])
 
