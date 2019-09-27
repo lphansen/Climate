@@ -1,4 +1,6 @@
 %%%%% This file generates results for the Ambiguity Neutral model.
+% Authors: Mike Barnett, Jieyao Wang
+% Last update: Sep 27,2019
 close all
 clear all
 clc
@@ -8,6 +10,7 @@ clc
 addpath('/mnt/ide0/home/wangjieyao/Climate/FT/')
 addpath('/home/wangjieyao/FT/')
 addpath('/Volumes/homes/FT/')
+addpath('/Volumes/wangjieyao/Climate/FT')
 
 %% Step 1: Set up parameters
 
@@ -120,12 +123,13 @@ B1 = v0_dr-xi_d.*(gamma_1(1)+gamma_2(1)*(t_mat).*beta_f+gamma_2_plus(1).*(t_mat.
 C1 = -delta.*alpha;
 e = -C1./B1;
 e_hat = e;
-Acoeff = exp(r_mat-k_mat);
-Bcoeff = delta.*(1-alpha)./(exp(-r_mat+k_mat).*v0_dr.*Gamma_r.*0.5)...
-    +v0_dk.*Gamma./(exp(-r_mat+k_mat).*v0_dr.*Gamma_r.*0.5);
+
+Acoeff = ones(size(r_mat));
+Bcoeff = ((delta.*(1-alpha)./Theta+Gamma./Theta.*v0_dk).*delta.*(1-alpha)./(v0_dr.*Gamma_r.*0.5)...
+    .*exp(0.5.*(r_mat-k_mat)))./(delta.*(1-alpha)./Theta);
 Ccoeff = -A_O - Theta;
 f = ((-Bcoeff+sqrt(Bcoeff.^2 - 4.*Acoeff.*Ccoeff))./(2.*Acoeff)).^(2);
-i_k = (v0_dk.*Gamma./(exp(-r_mat+k_mat).*v0_dr.*Gamma_r.*0.5)).*(f.^(0.5))-Theta;
+i_k = A_O-f-(delta.*(1-alpha))./(v0_dr.*Gamma_r.*0.5).*f.^0.5.*exp(0.5.*(r_mat-k_mat));
 
 % update prob.
 a_1 = zeros(size(r_mat));
@@ -184,7 +188,7 @@ RE_total = 1./theta.*RE;
 
 % inputs for solver
 A = -delta.*ones(size(r_mat));
-B_r = -e_star+Gamma_r.*(f.^Theta_r)-0.5.*(sigma_r.^2);
+B_r = -e_star+Gamma_r.*(f.^Theta_r).*exp(Theta_r.*(k_mat-r_mat))-0.5.*(sigma_r.^2);
 B_k = Alpha+Gamma.*log(1+i_k./Theta)-0.5.*(sigma_k.^2);
 B_t = e_star.*exp(r_mat);
 C_rr = 0.5.*sigma_r.^2.*ones(size(r_mat));
@@ -192,7 +196,7 @@ C_kk = 0.5.*sigma_k.^2.*ones(size(r_mat));
 C_tt = zeros(size(r_mat));
 
 D = delta.*alpha.*log(e_star)+delta.*alpha.*r_mat ...
-    + delta.*(1-alpha).*(log(A_O-i_k-f.*exp(r_mat-k_mat))+(k_mat)) ...
+    + delta.*(1-alpha).*(log(A_O-i_k-f)+(k_mat)) ...
     + drift_distort + RE_total;    
 
 stateSpace = [r_mat(:), t_mat(:), k_mat(:)]; 
@@ -250,15 +254,14 @@ while (max(max(max(abs(out_comp - vold))))) > tol % check for convergence
 
 
     e_hat = e_star;
-
-    f = ((A_O + Theta).*exp(-r_mat+k_mat).*(v0_dr.*Gamma_r.*Theta_r)...
-       ./((v0_dr.*Gamma_r.*Theta_r).*f.^(Theta_r)+...
-       (delta.*(1-alpha)+v0_dk.*Gamma))).^(1./(1-Theta_r));
+   
+    f = ((delta.*(1-alpha)./Theta.*A_O-f.*delta.*(1-alpha)./Theta+delta.*(1-alpha)) ...
+       ./(exp(Theta_r.*(r_mat-k_mat)).*(delta.*(1-alpha)./Theta+Gamma./Theta.*v0_dk).*delta.*(1-alpha)./(v0_dr.*Theta_r.*Gamma_r))) ...
+       .^(1./(1-Theta_r)); 
     f = f.*(v0_dr>1e-8);
 
-    i_k = ((v0_dk.*Gamma./(exp(-r_mat+k_mat).*v0_dr.*Gamma_r.*Theta_r)).*(f.^(1-Theta_r))-Theta).*(v0_dr>1e-8)...
+    i_k = (A_O-f-(delta.*(1-alpha))./(v0_dr.*Gamma_r.*Theta_r).*f.^(1-Theta_r).*exp(Theta_r.*(r_mat-k_mat))).*(v0_dr>1e-8)...
         + (v0_dr<=1e-8).*(v0_dk.*Gamma.*A_O - delta.*(1-alpha).*Theta)./(delta.*(1-alpha)+v0_dk.*Gamma);
-
 
     a_1 = zeros(size(r_mat));
     b_1 = xi_d.*e_hat.*exp(r_mat).*gamma_1;
@@ -319,7 +322,7 @@ while (max(max(max(abs(out_comp - vold))))) > tol % check for convergence
     RE_total = 1./theta.*RE;
 
     A = -delta.*ones(size(r_mat));
-    B_r = -e_star+Gamma_r.*(f.^Theta_r)-0.5.*(sigma_r.^2);
+    B_r = -e_star+Gamma_r.*(f.^Theta_r).*exp(Theta_r.*(k_mat-r_mat))-0.5.*(sigma_r.^2);
     B_k = Alpha+Gamma.*log(1+i_k./Theta)-0.5.*(sigma_k.^2);
     B_t = e_star.*exp(r_mat);
     C_rr = 0.5.*sigma_r.^2.*ones(size(r_mat));
@@ -327,8 +330,8 @@ while (max(max(max(abs(out_comp - vold))))) > tol % check for convergence
     C_tt = zeros(size(r_mat));
 
     D = delta.*alpha.*log(e_star)+delta.*alpha.*r_mat ...
-        + delta.*(1-alpha).*(log(A_O-i_k-f.*exp(r_mat-k_mat))+(k_mat)) ...
-        + drift_distort + RE_total;    
+        + delta.*(1-alpha).*(log(A_O-i_k-f)+(k_mat)) ...
+        + drift_distort + RE_total;   
 
     stateSpace = [r_mat(:), t_mat(:), k_mat(:)]; 
     model      = {};
@@ -436,7 +439,7 @@ D_0_tilted = pi_tilde_1_func(initial_val).*nordhaus_drift_func(initial_val)...
     +(1-pi_tilde_1_func(initial_val)).*weitzman_drift_func(initial_val);
 
 % function handles
-muR = @(x) -e_func(x)+Gamma_r.*f_func(x).^Theta_r;
+muR = @(x) -e_func(x)+Gamma_r.*(f_func(x).*x(:,2)./x(:,1)).^Theta_r;
 muK = @(x) (Alpha + Gamma.*log(1+i_k_func(x)./Theta));
 muT = @(x) e_func(x).*x(:,1);
 muD_base = @(x) base_drift_func(x);
@@ -486,7 +489,7 @@ v_hist2 = zeros(pers,1);
 hist2(1,:) = [R_0,K_0,T_0,D_0_base,D_0_tilted];
 e_hist2(1) =  e_func(hist2(1,:)).*hist2(1,1);
 i_k_hist2(1) =  i_k_func(hist2(1,:)).*hist2(1,2);
-f_hist2(1) =  f_func(hist2(1,:)).*hist2(1,1);
+f_hist2(1) =  f_func(hist2(1,:)).*hist2(1,2);
 v_dr_hist2(1) =  v_dr_func(hist2(1,:));
 v_dt_hist2(1) =  v_dt_func(hist2(1,:));
 v_dk_hist2(1) =  v_dk_func(hist2(1,:));
@@ -504,7 +507,7 @@ hist2(j,5) = max(min(hist2(j-1,5) + muD_tilted(hist2(j-1,:)) * dt + sigmaD(hist2
 
 e_hist2(j) = e_func(hist2(j-1,:)).*hist2(j-1,1);
 i_k_hist2(j) = i_k_func(hist2(j-1,:)).*hist2(j-1,2);
-f_hist2(j) =  f_func(hist2(j-1,:)).*hist2(j-1,1);
+f_hist2(j) =  f_func(hist2(j-1,:)).*hist2(j-1,2);
 
 v_dr_hist2(j) =  v_dr_func(hist2(j-1,:));
 v_dt_hist2(j) =  v_dt_func(hist2(j-1,:));
@@ -553,7 +556,7 @@ f = Model2.f;
 e = Model2.e;
 i_k = Model2.i_k;
 
-MC = delta.*(1-alpha)./(A_O.*exp(k_mat)-i_k.*exp(k_mat)-f.*exp(r_mat));
+MC = delta.*(1-alpha)./(A_O.*exp(k_mat)-i_k.*exp(k_mat)-f.*exp(k_mat));
 ME = delta.*alpha./(e.*exp(r_mat));
 SCC = 1000*ME./MC;
 SCC_func = griddedInterpolant(r_mat,t_mat,k_mat,SCC,'spline');
@@ -569,3 +572,4 @@ s1 = num2str(1./theta,4);
 s1 = strrep(s1,'.','');
 s_scc = strcat('SCC_A=',s1,'.mat');
 save(s_scc,'SCC');
+

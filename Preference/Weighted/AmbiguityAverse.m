@@ -1,4 +1,6 @@
 %%%%% This file generates results for the Ambiguity Averse model.
+% Authors: Mike Barnett, Jieyao Wang
+% Last update: Sep 27,2019
 close all
 clear all
 clc
@@ -8,6 +10,7 @@ clc
 addpath('/mnt/ide0/home/wangjieyao/Climate/FT/')
 addpath('/home/wangjieyao/FT/')
 addpath('/Volumes/homes/FT/')
+addpath('/Volumes/wangjieyao/Climate/FT')
 
 %% Step 1: Set up parameters
 
@@ -120,12 +123,13 @@ B1 = v0_dr-xi_d.*(gamma_1(1)+gamma_2(1)*(t_mat).*beta_f+gamma_2_plus(1).*(t_mat.
 C1 = -delta.*alpha;
 e = -C1./B1;
 e_hat = e;
-Acoeff = exp(r_mat-k_mat);
-Bcoeff = delta.*(1-alpha)./(exp(-r_mat+k_mat).*v0_dr.*Gamma_r.*0.5)...
-    +v0_dk.*Gamma./(exp(-r_mat+k_mat).*v0_dr.*Gamma_r.*0.5);
+
+Acoeff = ones(size(r_mat));
+Bcoeff = ((delta.*(1-alpha)./Theta+Gamma./Theta.*v0_dk).*delta.*(1-alpha)./(v0_dr.*Gamma_r.*0.5)...
+    .*exp(0.5.*(r_mat-k_mat)))./(delta.*(1-alpha)./Theta);
 Ccoeff = -A_O - Theta;
 f = ((-Bcoeff+sqrt(Bcoeff.^2 - 4.*Acoeff.*Ccoeff))./(2.*Acoeff)).^(2);
-i_k = (v0_dk.*Gamma./(exp(-r_mat+k_mat).*v0_dr.*Gamma_r.*0.5)).*(f.^(0.5))-Theta;
+i_k = A_O-f-(delta.*(1-alpha))./(v0_dr.*Gamma_r.*0.5).*f.^0.5.*exp(0.5.*(r_mat-k_mat));
 
 % update prob.
 a_1 = zeros(size(r_mat));
@@ -184,7 +188,7 @@ RE_total = 1./theta.*RE;
 
 % inputs for solver
 A = -delta.*ones(size(r_mat));
-B_r = -e_star+Gamma_r.*(f.^Theta_r)-0.5.*(sigma_r.^2);
+B_r = -e_star+Gamma_r.*(f.^Theta_r).*exp(Theta_r.*(k_mat-r_mat))-0.5.*(sigma_r.^2);
 B_k = Alpha+Gamma.*log(1+i_k./Theta)-0.5.*(sigma_k.^2);
 B_t = e_star.*exp(r_mat);
 C_rr = 0.5.*sigma_r.^2.*ones(size(r_mat));
@@ -192,7 +196,7 @@ C_kk = 0.5.*sigma_k.^2.*ones(size(r_mat));
 C_tt = zeros(size(r_mat));
 
 D = delta.*alpha.*log(e_star)+delta.*alpha.*r_mat ...
-    + delta.*(1-alpha).*(log(A_O-i_k-f.*exp(r_mat-k_mat))+(k_mat)) ...
+    + delta.*(1-alpha).*(log(A_O-i_k-f)+(k_mat)) ...
     + drift_distort + RE_total;    
 
 stateSpace = [r_mat(:), t_mat(:), k_mat(:)]; 
@@ -250,15 +254,14 @@ while (max(max(max(abs(out_comp - vold))))) > tol % check for convergence
 
 
     e_hat = e_star;
-
-    f = ((A_O + Theta).*exp(-r_mat+k_mat).*(v0_dr.*Gamma_r.*Theta_r)...
-       ./((v0_dr.*Gamma_r.*Theta_r).*f.^(Theta_r)+...
-       (delta.*(1-alpha)+v0_dk.*Gamma))).^(1./(1-Theta_r));
+   
+    f = ((delta.*(1-alpha)./Theta.*A_O-f.*delta.*(1-alpha)./Theta+delta.*(1-alpha)) ...
+       ./(exp(Theta_r.*(r_mat-k_mat)).*(delta.*(1-alpha)./Theta+Gamma./Theta.*v0_dk).*delta.*(1-alpha)./(v0_dr.*Theta_r.*Gamma_r))) ...
+       .^(1./(1-Theta_r));   
     f = f.*(v0_dr>1e-8);
 
-    i_k = ((v0_dk.*Gamma./(exp(-r_mat+k_mat).*v0_dr.*Gamma_r.*Theta_r)).*(f.^(1-Theta_r))-Theta).*(v0_dr>1e-8)...
+    i_k = (A_O-f-(delta.*(1-alpha))./(v0_dr.*Gamma_r.*Theta_r).*f.^(1-Theta_r).*exp(Theta_r.*(r_mat-k_mat))).*(v0_dr>1e-8)...
         + (v0_dr<=1e-8).*(v0_dk.*Gamma.*A_O - delta.*(1-alpha).*Theta)./(delta.*(1-alpha)+v0_dk.*Gamma);
-
 
     a_1 = zeros(size(r_mat));
     b_1 = xi_d.*e_hat.*exp(r_mat).*gamma_1;
@@ -319,7 +322,7 @@ while (max(max(max(abs(out_comp - vold))))) > tol % check for convergence
     RE_total = 1./theta.*RE;
 
     A = -delta.*ones(size(r_mat));
-    B_r = -e_star+Gamma_r.*(f.^Theta_r)-0.5.*(sigma_r.^2);
+    B_r = -e_star+Gamma_r.*(f.^Theta_r).*exp(Theta_r.*(k_mat-r_mat))-0.5.*(sigma_r.^2);
     B_k = Alpha+Gamma.*log(1+i_k./Theta)-0.5.*(sigma_k.^2);
     B_t = e_star.*exp(r_mat);
     C_rr = 0.5.*sigma_r.^2.*ones(size(r_mat));
@@ -327,8 +330,8 @@ while (max(max(max(abs(out_comp - vold))))) > tol % check for convergence
     C_tt = zeros(size(r_mat));
 
     D = delta.*alpha.*log(e_star)+delta.*alpha.*r_mat ...
-        + delta.*(1-alpha).*(log(A_O-i_k-f.*exp(r_mat-k_mat))+(k_mat)) ...
-        + drift_distort + RE_total;    
+        + delta.*(1-alpha).*(log(A_O-i_k-f)+(k_mat)) ...
+        + drift_distort + RE_total;   
 
     stateSpace = [r_mat(:), t_mat(:), k_mat(:)]; 
     model      = {};
@@ -436,7 +439,7 @@ D_0_tilted = pi_tilde_1_func(initial_val).*nordhaus_drift_func(initial_val)...
     +(1-pi_tilde_1_func(initial_val)).*weitzman_drift_func(initial_val);
 
 % function handles
-muR = @(x) -e_func(x)+Gamma_r.*f_func(x).^Theta_r;
+muR = @(x) -e_func(x)+Gamma_r.*(f_func(x).*x(:,2)./x(:,1)).^Theta_r;
 muK = @(x) (Alpha + Gamma.*log(1+i_k_func(x)./Theta));
 muT = @(x) e_func(x).*x(:,1);
 muD_base = @(x) base_drift_func(x);
@@ -486,7 +489,7 @@ v_hist2 = zeros(pers,1);
 hist2(1,:) = [R_0,K_0,T_0,D_0_base,D_0_tilted];
 e_hist2(1) =  e_func(hist2(1,:)).*hist2(1,1);
 i_k_hist2(1) =  i_k_func(hist2(1,:)).*hist2(1,2);
-f_hist2(1) =  f_func(hist2(1,:)).*hist2(1,1);
+f_hist2(1) =  f_func(hist2(1,:)).*hist2(1,2);
 v_dr_hist2(1) =  v_dr_func(hist2(1,:));
 v_dt_hist2(1) =  v_dt_func(hist2(1,:));
 v_dk_hist2(1) =  v_dk_func(hist2(1,:));
@@ -504,7 +507,7 @@ hist2(j,5) = max(min(hist2(j-1,5) + muD_tilted(hist2(j-1,:)) * dt + sigmaD(hist2
 
 e_hist2(j) = e_func(hist2(j-1,:)).*hist2(j-1,1);
 i_k_hist2(j) = i_k_func(hist2(j-1,:)).*hist2(j-1,2);
-f_hist2(j) =  f_func(hist2(j-1,:)).*hist2(j-1,1);
+f_hist2(j) =  f_func(hist2(j-1,:)).*hist2(j-1,2);
 
 v_dr_hist2(j) =  v_dr_func(hist2(j-1,:));
 v_dt_hist2(j) =  v_dt_func(hist2(j-1,:));
@@ -547,7 +550,7 @@ flow_base = base_model_flow;
 
 % inputs for solver
 A = -delta.*ones(size(r_mat));
-B_r = -e+Gamma_r.*(f.^Theta_r)-0.5.*(sigma_r.^2);
+B_r = -e+Gamma_r.*(f.^Theta_r).*exp(Theta_r.*(k_mat-r_mat))-0.5.*(sigma_r.^2);
 B_k = Alpha+Gamma.*log(1+i_k./Theta)-0.5.*(sigma_k.^2);
 B_t = e.*exp(r_mat);
 C_rr = 0.5.*sigma_r.^2.*ones(size(r_mat));
@@ -610,7 +613,7 @@ flow_tilted = pi_tilde_1_norm.*nordhaus_model_flow ...
     +(1-pi_tilde_1_norm).*weitzman_model_flow;
 
 A = -delta.*ones(size(r_mat));
-B_r = -e+Gamma_r.*(f.^Theta_r)-0.5.*(sigma_r.^2);
+B_r = -e+Gamma_r.*(f.^Theta_r).*exp(Theta_r.*(k_mat-r_mat))-0.5.*(sigma_r.^2);
 B_k = Alpha+Gamma.*log(1+i_k./Theta)-0.5.*(sigma_k.^2);
 B_t = e.*exp(r_mat);
 C_rr = 0.5.*sigma_r.^2.*ones(size(r_mat));
@@ -676,7 +679,7 @@ f = Model1.f;
 e = Model1.e;
 expec_e_sum = Model1.expec_e_sum;
 
-MC = delta.*(1-alpha)./(A_O.*exp(k_mat)-i_k.*exp(k_mat)-f.*exp(r_mat));
+MC = delta.*(1-alpha)./(A_O.*exp(k_mat)-i_k.*exp(k_mat)-f.*exp(k_mat));
 ME = delta.*alpha./(e.*exp(r_mat));
 SCC = 1000*ME./MC;
 SCC_func = griddedInterpolant(r_mat,t_mat,k_mat,SCC,'spline');
@@ -757,65 +760,67 @@ clc
 
 % load results
 file1 = [pwd, '/HJB_NonLinPref_Cumu'];
-Model1 = load(file1,'RE','pi_tilde_1_norm','pi_tilde_2_norm','r_mat','k_mat','t_mat',...
-    'beta_tilde_1','beta_f','lambda_tilde_1','theta','var_beta_f','xi_d',...
-    'gamma_1','gamma_2','gamma_2_plus','power','f_bar','e','n','a','b'); 
+Model1 = load(file1,'R_1','pi_tilde_1_norm','r_mat','k_mat','t_mat',...
+    'beta_tilde_1','beta_f','lambda_tilde_1','theta','var_beta_f'); 
 
-RE = Model1.RE;
+RE_1 = Model1.R_1;
 pi_tilde_1 = Model1.pi_tilde_1_norm;
-pi_tilde_2 = Model1.pi_tilde_2_norm;
 beta_tilde_1 = Model1.beta_tilde_1;
 beta_f = Model1.beta_f;
 lambda_tilde_1 = Model1.lambda_tilde_1;
 theta = Model1.theta;
 var_beta_f = Model1.var_beta_f;
-xi_d = Model1.xi_d;
-gamma_1 = Model1.gamma_1;
-gamma_2 = Model1.gamma_2;
-gamma_2_plus = Model1.gamma_2_plus;
-power = Model1.power;
-f_bar = Model1.f_bar;
-e = Model1.e;
-n = Model1.n;
 r_mat = Model1.r_mat;
 t_mat = Model1.t_mat;
 k_mat = Model1.k_mat;
 a = beta_f-10.*sqrt(var_beta_f);
 b = beta_f+10.*sqrt(var_beta_f);
-A = Model1.a;
-B = Model1.b;
 
-
-RE_func = griddedInterpolant(r_mat,t_mat,k_mat,RE,'spline');
+RE_1_func = griddedInterpolant(r_mat,t_mat,k_mat,RE_1,'spline');
 pi_tilde_1_func = griddedInterpolant(r_mat,t_mat,k_mat,pi_tilde_1,'spline');
-pi_tilde_2_func = griddedInterpolant(r_mat,t_mat,k_mat,pi_tilde_2,'spline');
 beta_tilde_1_func = griddedInterpolant(r_mat,t_mat,k_mat,beta_tilde_1,'spline');
 lambda_tilde_1_func = griddedInterpolant(r_mat,t_mat,k_mat,lambda_tilde_1,'spline');
-e_func = griddedInterpolant(r_mat,t_mat,k_mat,e,'spline');
-
 
 file1 = [pwd, '/HJB_NonLinPref_Cumu_Sims'];
 Model1 = load(file1,'hists2'); 
 hists2 = Model1.hists2;
 T_value = mean(squeeze(hists2(:,3,:)),2);
 R_value = mean(squeeze(hists2(:,1,:)),2);
-D_value = mean(squeeze(hists2(:,4,:)),2);
 K_value = mean(squeeze(hists2(:,2,:)),2);
 
-% Relative entropy and weights
+% relative entropy and weights
 for time=1:400
-    RE_plot(time) = RE_func(log(R_value(time,1)),T_value(time,1),log(K_value(time,1)));
+    RE_1_plot(time) = RE_1_func(log(R_value(time,1)),T_value(time,1),log(K_value(time,1)));
     weight_plot(time) = pi_tilde_1_func(log(R_value(time,1)),T_value(time,1),log(K_value(time,1)));
-
+    nordhaus_mean(time) = beta_tilde_1_func(log(R_value(time,1)),T_value(time,1),log(K_value(time,1)));
+    sd_nordhaus(time) = 1./sqrt(lambda_tilde_1_func(log(R_value(time,1)),T_value(time,1),log(K_value(time,1))));
 end
 
 fileID = fopen('Relative Entropy.txt','w');
 fprintf(fileID,'xi_a: %.6f \n',1./theta);
-fprintf(fileID,'0 yr: %.6f \n',RE_plot(1));
-fprintf(fileID,'25 yr: %.6f \n',RE_plot(100));
-fprintf(fileID,'50 yr: %.6f \n',RE_plot(200));
-fprintf(fileID,'75 yr: %.6f \n',RE_plot(300));
-fprintf(fileID,'100 yr: %.6f \n',RE_plot(400));
+fprintf(fileID,'0 yr: %.6f \n',RE_1_plot(1));
+fprintf(fileID,'25 yr: %.6f \n',RE_1_plot(100));
+fprintf(fileID,'50 yr: %.6f \n',RE_1_plot(200));
+fprintf(fileID,'75 yr: %.6f \n',RE_1_plot(300));
+fprintf(fileID,'100 yr: %.6f \n',RE_1_plot(400));
+fclose(fileID);
+
+fileID = fopen('Shifted Mean.txt','w');
+fprintf(fileID,'xi_a: %.6f \n',1./theta);
+fprintf(fileID,'0 yr: %.6f \n',nordhaus_mean(1));
+fprintf(fileID,'25 yr: %.6f \n',nordhaus_mean(100));
+fprintf(fileID,'50 yr: %.6f \n',nordhaus_mean(200));
+fprintf(fileID,'75 yr: %.6f \n',nordhaus_mean(300));
+fprintf(fileID,'100 yr: %.6f \n',nordhaus_mean(400));
+fclose(fileID);
+
+fileID = fopen('Shifted Standard Deviation.txt','w');
+fprintf(fileID,'xi_a: %.6f \n',1./theta);
+fprintf(fileID,'0 yr: %.6f \n',sd_nordhaus(1));
+fprintf(fileID,'25 yr: %.6f \n',sd_nordhaus(100));
+fprintf(fileID,'50 yr: %.6f \n',sd_nordhaus(200));
+fprintf(fileID,'75 yr: %.6f \n',sd_nordhaus(300));
+fprintf(fileID,'100 yr: %.6f \n',sd_nordhaus(400));
 fclose(fileID);
 
 fileID = fopen('Nordhaus Weight.txt','w');
@@ -830,8 +835,7 @@ fclose(fileID);
 beta_f_space = linspace(a,b,200); % space for beta_f
 save('beta_f_space','beta_f_space')
 
-
-%%% probabilities
+%%% probabilitiess
 
 % year 0
 time=1;
@@ -840,25 +844,12 @@ K0 = K_value(time,1);
 F0 = T_value(time,1);
 
 mean_distort_nordhaus = beta_tilde_1_func(log(R0),F0,log(K0))-beta_f;
-weight = pi_tilde_1_func(log(R0),F0,log(K0));
 lambda_tilde_nordhaus = lambda_tilde_1_func(log(R0),F0,log(K0));
-scale_2_fnc = @(x) exp(-theta.*xi_d.*(gamma_1.*x ...
-        +gamma_2.*x.^2.*F0 ...
-        +gamma_2_plus.*x.*(x.*F0-f_bar).^(power-1).*((x.*F0-f_bar)>=0)).*R0.*e_func(log(R0),F0,log(K0)))...
-        .*normpdf(x, beta_f, sqrt(var_beta_f)); ...
-scale_2 = quad_int(scale_2_fnc, A, B, n,'legendre');
-q2_tilde_fnc_0 =  exp(-theta.*xi_d.*(gamma_1.*beta_f_space ...
-        +gamma_2.*beta_f_space.^2.*F0 ...
-        +gamma_2_plus.*beta_f_space.*(beta_f_space.*F0-f_bar).^(power-1).*((beta_f_space.*F0-f_bar)>=0)).*R0.*e_func(log(R0),F0,log(K0)))...
-        ./scale_2.*normpdf(beta_f_space,beta_f,sqrt(var_beta_f));
 original_dist = normpdf(beta_f_space,beta_f,sqrt(var_beta_f));
 nordhaus_dist_0 = normpdf(beta_f_space,mean_distort_nordhaus+beta_f,1./sqrt(lambda_tilde_nordhaus));
-weight_0 = weight;
 nordhaus = nordhaus_dist_0;
-weitzman = q2_tilde_fnc_0;
 original = original_dist;
-weighted = weight_0.*nordhaus_dist_0+(1-weight_0).*q2_tilde_fnc_0;
-save('Dist_0yr','nordhaus','weitzman','original','weighted')
+save('Dist_0yr','nordhaus','original')
 
 % year 25
 time=100;
@@ -867,25 +858,12 @@ K0 = K_value(time,1);
 F0 = T_value(time,1);
 
 mean_distort_nordhaus = beta_tilde_1_func(log(R0),F0,log(K0))-beta_f;
-weight = pi_tilde_1_func(log(R0),F0,log(K0));
 lambda_tilde_nordhaus = lambda_tilde_1_func(log(R0),F0,log(K0));
-scale_2_fnc = @(x) exp(-theta.*xi_d.*(gamma_1.*x ...
-        +gamma_2.*x.^2.*F0 ...
-        +gamma_2_plus.*x.*(x.*F0-f_bar).^(power-1).*((x.*F0-f_bar)>=0)).*R0.*e_func(log(R0),F0,log(K0)))...
-        .*normpdf(x, beta_f, sqrt(var_beta_f)); ...
-scale_2 = quad_int(scale_2_fnc, A, B, n,'legendre');
-q2_tilde_fnc_0 =  exp(-theta.*xi_d.*(gamma_1.*beta_f_space ...
-        +gamma_2.*beta_f_space.^2.*F0 ...
-        +gamma_2_plus.*beta_f_space.*(beta_f_space.*F0-f_bar).^(power-1).*((beta_f_space.*F0-f_bar)>=0)).*R0.*e_func(log(R0),F0,log(K0)))...
-        ./scale_2.*normpdf(beta_f_space,beta_f,sqrt(var_beta_f));
 original_dist = normpdf(beta_f_space,beta_f,sqrt(var_beta_f));
 nordhaus_dist_0 = normpdf(beta_f_space,mean_distort_nordhaus+beta_f,1./sqrt(lambda_tilde_nordhaus));
-weight_0 = weight;
 nordhaus = nordhaus_dist_0;
-weitzman = q2_tilde_fnc_0;
 original = original_dist;
-weighted = weight_0.*nordhaus_dist_0+(1-weight_0).*q2_tilde_fnc_0;
-save('Dist_25yr','nordhaus','weitzman','original','weighted')
+save('Dist_25yr','nordhaus','original')
 
 % year 50
 time=200;
@@ -894,25 +872,12 @@ K0 = K_value(time,1);
 F0 = T_value(time,1);
 
 mean_distort_nordhaus = beta_tilde_1_func(log(R0),F0,log(K0))-beta_f;
-weight = pi_tilde_1_func(log(R0),F0,log(K0));
 lambda_tilde_nordhaus = lambda_tilde_1_func(log(R0),F0,log(K0));
-scale_2_fnc = @(x) exp(-theta.*xi_d.*(gamma_1.*x ...
-        +gamma_2.*x.^2.*F0 ...
-        +gamma_2_plus.*x.*(x.*F0-f_bar).^(power-1).*((x.*F0-f_bar)>=0)).*R0.*e_func(log(R0),F0,log(K0)))...
-        .*normpdf(x, beta_f, sqrt(var_beta_f)); ...
-scale_2 = quad_int(scale_2_fnc, A, B, n,'legendre');
-q2_tilde_fnc_0 =  exp(-theta.*xi_d.*(gamma_1.*beta_f_space ...
-        +gamma_2.*beta_f_space.^2.*F0 ...
-        +gamma_2_plus.*beta_f_space.*(beta_f_space.*F0-f_bar).^(power-1).*((beta_f_space.*F0-f_bar)>=0)).*R0.*e_func(log(R0),F0,log(K0)))...
-        ./scale_2.*normpdf(beta_f_space,beta_f,sqrt(var_beta_f));
 original_dist = normpdf(beta_f_space,beta_f,sqrt(var_beta_f));
 nordhaus_dist_0 = normpdf(beta_f_space,mean_distort_nordhaus+beta_f,1./sqrt(lambda_tilde_nordhaus));
-weight_0 = weight;
 nordhaus = nordhaus_dist_0;
-weitzman = q2_tilde_fnc_0;
 original = original_dist;
-weighted = weight_0.*nordhaus_dist_0+(1-weight_0).*q2_tilde_fnc_0;
-save('Dist_50yr','nordhaus','weitzman','original','weighted')
+save('Dist_50yr','nordhaus','original')
 
 % year 75
 time=300;
@@ -921,25 +886,12 @@ K0 = K_value(time,1);
 F0 = T_value(time,1);
 
 mean_distort_nordhaus = beta_tilde_1_func(log(R0),F0,log(K0))-beta_f;
-weight = pi_tilde_1_func(log(R0),F0,log(K0));
 lambda_tilde_nordhaus = lambda_tilde_1_func(log(R0),F0,log(K0));
-scale_2_fnc = @(x) exp(-theta.*xi_d.*(gamma_1.*x ...
-        +gamma_2.*x.^2.*F0 ...
-        +gamma_2_plus.*x.*(x.*F0-f_bar).^(power-1).*((x.*F0-f_bar)>=0)).*R0.*e_func(log(R0),F0,log(K0)))...
-        .*normpdf(x, beta_f, sqrt(var_beta_f)); ...
-scale_2 = quad_int(scale_2_fnc, A, B, n,'legendre');
-q2_tilde_fnc_0 =  exp(-theta.*xi_d.*(gamma_1.*beta_f_space ...
-        +gamma_2.*beta_f_space.^2.*F0 ...
-        +gamma_2_plus.*beta_f_space.*(beta_f_space.*F0-f_bar).^(power-1).*((beta_f_space.*F0-f_bar)>=0)).*R0.*e_func(log(R0),F0,log(K0)))...
-        ./scale_2.*normpdf(beta_f_space,beta_f,sqrt(var_beta_f));
 original_dist = normpdf(beta_f_space,beta_f,sqrt(var_beta_f));
 nordhaus_dist_0 = normpdf(beta_f_space,mean_distort_nordhaus+beta_f,1./sqrt(lambda_tilde_nordhaus));
-weight_0 = weight;
 nordhaus = nordhaus_dist_0;
-weitzman = q2_tilde_fnc_0;
 original = original_dist;
-weighted = weight_0.*nordhaus_dist_0+(1-weight_0).*q2_tilde_fnc_0;
-save('Dist_75yr','nordhaus','weitzman','original','weighted')
+save('Dist_75yr','nordhaus','original')
 
 % year 100
 time=400;
@@ -948,27 +900,10 @@ K0 = K_value(time,1);
 F0 = T_value(time,1);
 
 mean_distort_nordhaus = beta_tilde_1_func(log(R0),F0,log(K0))-beta_f;
-weight = pi_tilde_1_func(log(R0),F0,log(K0));
 lambda_tilde_nordhaus = lambda_tilde_1_func(log(R0),F0,log(K0));
-scale_2_fnc = @(x) exp(-theta.*xi_d.*(gamma_1.*x ...
-        +gamma_2.*x.^2.*F0 ...
-        +gamma_2_plus.*x.*(x.*F0-f_bar).^(power-1).*((x.*F0-f_bar)>=0)).*R0.*e_func(log(R0),F0,log(K0)))...
-        .*normpdf(x, beta_f, sqrt(var_beta_f)); ...
-scale_2 = quad_int(scale_2_fnc, A, B, n,'legendre');
-q2_tilde_fnc_0 =  exp(-theta.*xi_d.*(gamma_1.*beta_f_space ...
-        +gamma_2.*beta_f_space.^2.*F0 ...
-        +gamma_2_plus.*beta_f_space.*(beta_f_space.*F0-f_bar).^(power-1).*((beta_f_space.*F0-f_bar)>=0)).*R0.*e_func(log(R0),F0,log(K0)))...
-        ./scale_2.*normpdf(beta_f_space,beta_f,sqrt(var_beta_f));
 original_dist = normpdf(beta_f_space,beta_f,sqrt(var_beta_f));
 nordhaus_dist_0 = normpdf(beta_f_space,mean_distort_nordhaus+beta_f,1./sqrt(lambda_tilde_nordhaus));
-weight_0 = weight;
 nordhaus = nordhaus_dist_0;
-weitzman = q2_tilde_fnc_0;
 original = original_dist;
-weighted = weight_0.*nordhaus_dist_0+(1-weight_0).*q2_tilde_fnc_0;
-save('Dist_100yr','nordhaus','weitzman','original','weighted')
-
-
-
-
+save('Dist_100yr','nordhaus','original')
 

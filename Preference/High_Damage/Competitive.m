@@ -1,4 +1,6 @@
 %%%%% This file generates results for the Competitive model SCC results.
+% Authors: Mike Barnett, Jieyao Wang
+% Last update: Sep 27,2019
 close all
 clear all
 clc
@@ -125,12 +127,13 @@ B1 = v0_dr-xi_d.*(gamma_1(1)+gamma_2(1)*(t_mat).*beta_f+gamma_2_plus(1).*(t_mat.
 C1 = -delta.*alpha;
 e = -C1./B1;
 e_hat = e;
-Acoeff = exp(r_mat-k_mat);
-Bcoeff = delta.*(1-alpha)./(exp(-r_mat+k_mat).*v0_dr.*Gamma_r.*0.5)...
-    +v0_dk.*Gamma./(exp(-r_mat+k_mat).*v0_dr.*Gamma_r.*0.5);
+
+Acoeff = ones(size(r_mat));
+Bcoeff = ((delta.*(1-alpha)./Theta+Gamma./Theta.*v0_dk).*delta.*(1-alpha)./(v0_dr.*Gamma_r.*0.5)...
+    .*exp(0.5.*(r_mat-k_mat)))./(delta.*(1-alpha)./Theta);
 Ccoeff = -A_O - Theta;
 f = ((-Bcoeff+sqrt(Bcoeff.^2 - 4.*Acoeff.*Ccoeff))./(2.*Acoeff)).^(2);
-i_k = (v0_dk.*Gamma./(exp(-r_mat+k_mat).*v0_dr.*Gamma_r.*0.5)).*(f.^(0.5))-Theta;
+i_k = A_O-f-(delta.*(1-alpha))./(v0_dr.*Gamma_r.*0.5).*f.^0.5.*exp(0.5.*(r_mat-k_mat));
 
 % update prob.
 a_1 = zeros(size(r_mat));
@@ -189,7 +192,7 @@ RE_total = 1./theta.*RE;
 
 % inputs for solver
 A = -delta.*ones(size(r_mat));
-B_r = -e_star+Gamma_r.*(f.^Theta_r)-0.5.*(sigma_r.^2);
+B_r = -e_star+Gamma_r.*(f.^Theta_r).*exp(Theta_r.*(k_mat-r_mat))-0.5.*(sigma_r.^2);
 B_k = Alpha+Gamma.*log(1+i_k./Theta)-0.5.*(sigma_k.^2);
 B_t = e_star.*exp(r_mat);
 C_rr = 0.5.*sigma_r.^2.*ones(size(r_mat));
@@ -197,8 +200,8 @@ C_kk = 0.5.*sigma_k.^2.*ones(size(r_mat));
 C_tt = zeros(size(r_mat));
 
 D = delta.*alpha.*log(e_star)+delta.*alpha.*r_mat ...
-    + delta.*(1-alpha).*(log(A_O-i_k-f.*exp(r_mat-k_mat))+(k_mat)) ...
-    + drift_distort + RE_total;    
+    + delta.*(1-alpha).*(log(A_O-i_k-f)+(k_mat)) ...
+    + drift_distort + RE_total;      
 
 stateSpace = [r_mat(:), t_mat(:), k_mat(:)]; 
 model      = {};
@@ -255,13 +258,13 @@ while (max(max(max(abs(out_comp - vold))))) > tol % check for convergence
 
 
     e_hat = e_star;
-
-    f = ((A_O + Theta).*exp(-r_mat+k_mat).*(v0_dr.*Gamma_r.*Theta_r)...
-       ./((v0_dr.*Gamma_r.*Theta_r).*f.^(Theta_r)+...
-       (delta.*(1-alpha)+v0_dk.*Gamma))).^(1./(1-Theta_r));
+   
+    f = ((delta.*(1-alpha)./Theta.*A_O-f.*delta.*(1-alpha)./Theta+delta.*(1-alpha)) ...
+       ./(exp(Theta_r.*(r_mat-k_mat)).*(delta.*(1-alpha)./Theta+Gamma./Theta.*v0_dk).*delta.*(1-alpha)./(v0_dr.*Theta_r.*Gamma_r))) ...
+       .^(1./(1-Theta_r));
     f = f.*(v0_dr>1e-8);
 
-    i_k = ((v0_dk.*Gamma./(exp(-r_mat+k_mat).*v0_dr.*Gamma_r.*Theta_r)).*(f.^(1-Theta_r))-Theta).*(v0_dr>1e-8)...
+    i_k = (A_O-f-(delta.*(1-alpha))./(v0_dr.*Gamma_r.*Theta_r).*f.^(1-Theta_r).*exp(Theta_r.*(r_mat-k_mat))).*(v0_dr>1e-8)...
         + (v0_dr<=1e-8).*(v0_dk.*Gamma.*A_O - delta.*(1-alpha).*Theta)./(delta.*(1-alpha)+v0_dk.*Gamma);
 
 
@@ -324,7 +327,7 @@ while (max(max(max(abs(out_comp - vold))))) > tol % check for convergence
     RE_total = 1./theta.*RE;
 
     A = -delta.*ones(size(r_mat));
-    B_r = -e_star+Gamma_r.*(f.^Theta_r)-0.5.*(sigma_r.^2);
+    B_r = -e_star+Gamma_r.*(f.^Theta_r).*exp(Theta_r.*(k_mat-r_mat))-0.5.*(sigma_r.^2);
     B_k = Alpha+Gamma.*log(1+i_k./Theta)-0.5.*(sigma_k.^2);
     B_t = e_star.*exp(r_mat);
     C_rr = 0.5.*sigma_r.^2.*ones(size(r_mat));
@@ -332,8 +335,8 @@ while (max(max(max(abs(out_comp - vold))))) > tol % check for convergence
     C_tt = zeros(size(r_mat));
 
     D = delta.*alpha.*log(e_star)+delta.*alpha.*r_mat ...
-        + delta.*(1-alpha).*(log(A_O-i_k-f.*exp(r_mat-k_mat))+(k_mat)) ...
-        + drift_distort + RE_total;    
+        + delta.*(1-alpha).*(log(A_O-i_k-f)+(k_mat)) ...
+        + drift_distort + RE_total;   
 
     stateSpace = [r_mat(:), t_mat(:), k_mat(:)]; 
     model      = {};
@@ -397,7 +400,6 @@ v0 = (alpha).*r_mat+(1-alpha).*k_mat; % initial guess
 v1_initial = v0.*ones(size(r_mat));
 out = v0;
 vold = v0 .* ones(size(v0));
-timeDerivative = [];
 iter = 1;
 
 v0 = v0.*ones(size(v0));
@@ -426,21 +428,21 @@ v0_dkk(:,1) = (1./(hk.^2)).*(v0(:,3)+v0(:,1)-2.*v0(:,2));
 
 %FOC
 e = delta.*alpha./v0_dr;
-Acoeff = exp(r_mat-k_mat);
-Bcoeff = delta.*(1-alpha)./(exp(-r_mat+k_mat).*v0_dr.*Gamma_r.*0.5)...
-        +v0_dk.*Gamma./(exp(-r_mat+k_mat).*v0_dr.*Gamma_r.*0.5);
+Acoeff = ones(size(r_mat));
+Bcoeff = ((delta.*(1-alpha)./Theta+Gamma./Theta.*v0_dk).*delta.*(1-alpha)./(v0_dr.*Gamma_r.*0.5)...
+    .*exp(0.5.*(r_mat-k_mat)))./(delta.*(1-alpha)./Theta);
 Ccoeff = -A_O - Theta;
 f = ((-Bcoeff+sqrt(Bcoeff.^2 - 4.*Acoeff.*Ccoeff))./(2.*Acoeff)).^(2);
-i_k = (v0_dk.*Gamma./(exp(-r_mat+k_mat).*v0_dr.*Gamma_r.*0.5)).*(f.^(0.5))-Theta;
+i_k = A_O-f-(delta.*(1-alpha))./(v0_dr.*Gamma_r.*0.5).*f.^0.5.*exp(0.5.*(r_mat-k_mat));
 
 A = -delta.*ones(size(r_mat));
-B_r = -e+Gamma_r.*(f.^Theta_r)-0.5.*(sigma_r.^2);
+B_r = -e+Gamma_r.*(f.^Theta_r).*exp(Theta_r.*(k_mat-r_mat))-0.5.*(sigma_r.^2);
 B_k = Alpha+Gamma.*log(1+i_k./Theta)-0.5.*(sigma_k.^2);
 C_rr = 0.5.*sigma_r.^2.*ones(size(r_mat));
 C_kk = 0.5.*sigma_k.^2.*ones(size(r_mat));
 
 D = delta.*alpha.*log(e)+delta.*alpha.*r_mat ...
-    + delta.*(1-alpha).*(log(A_O-i_k-f.*exp(r_mat-k_mat))+(k_mat));    
+    + delta.*(1-alpha).*(log(A_O-i_k-f)+(k_mat));    
 
 stateSpace = [r_mat(:), k_mat(:)]; 
 model      = {};
@@ -486,21 +488,21 @@ while (max(max(max(abs(out_comp - vold))))) > tol
 
 
     e = delta.*alpha./v0_dr;
-    f = ((A_O + Theta).*exp(-r_mat+k_mat).*(v0_dr.*Gamma_r.*Theta_r)...
-       ./((v0_dr.*Gamma_r.*Theta_r).*f.^(Theta_r)+...
-       (delta.*(1-alpha)+v0_dk.*Gamma))).^(1./(1-Theta_r));
+    f = ((delta.*(1-alpha)./Theta.*A_O-f.*delta.*(1-alpha)./Theta+delta.*(1-alpha)) ...
+       ./(exp(Theta_r.*(r_mat-k_mat)).*(delta.*(1-alpha)./Theta+Gamma./Theta.*v0_dk).*delta.*(1-alpha)./(v0_dr.*Theta_r.*Gamma_r))) ...
+       .^(1./(1-Theta_r));    
     f = f.*(v0_dr>1e-8);
-    i_k = ((v0_dk.*Gamma./(exp(-r_mat+k_mat).*v0_dr.*Gamma_r.*Theta_r)).*(f.^(1-Theta_r))-Theta).*(v0_dr>1e-8)...
-       + (v0_dr<=1e-8).*(v0_dk.*Gamma.*A_O - delta.*(1-alpha).*Theta)./(delta.*(1-alpha)+v0_dk.*Gamma);
+    i_k = (A_O-f-(delta.*(1-alpha))./(v0_dr.*Gamma_r.*Theta_r).*f.^(1-Theta_r).*exp(Theta_r.*(r_mat-k_mat))).*(v0_dr>1e-8)...
+        + (v0_dr<=1e-8).*(v0_dk.*Gamma.*A_O - delta.*(1-alpha).*Theta)./(delta.*(1-alpha)+v0_dk.*Gamma);
 
     A = -delta.*ones(size(r_mat));
-    B_r = -e+Gamma_r.*(f.^Theta_r)-0.5.*(sigma_r.^2);
+    B_r = -e+Gamma_r.*(f.^Theta_r).*exp(Theta_r.*(k_mat-r_mat))-0.5.*(sigma_r.^2);
     B_k = Alpha+Gamma.*log(1+i_k./Theta)-0.5.*(sigma_k.^2);
     C_rr = 0.5.*sigma_r.^2.*ones(size(r_mat));
     C_kk = 0.5.*sigma_k.^2.*ones(size(r_mat));
   
     D = delta.*alpha.*log(e)+delta.*alpha.*r_mat ...
-        + delta.*(1-alpha).*(log(A_O-i_k-f.*exp(r_mat-k_mat))+(k_mat));   
+        + delta.*(1-alpha).*(log(A_O-i_k-f)+(k_mat));   
 
     stateSpace = [r_mat(:), k_mat(:)]; 
     model      = {};
@@ -569,7 +571,7 @@ K_0 = 80/A_O;
 T_0 = (870-580);
 
 % function handles
-muR = @(x) -e_func(x)+Gamma_r.*f_func(x).^Theta_r;
+muR = @(x) -e_func(x)+Gamma_r.*(f_func(x).*x(:,2)./x(:,1)).^Theta_r;
 muK = @(x) (Alpha + Gamma.*log(1+i_k_func(x)./Theta));
 muT = @(x) e_func(x).*x(:,1);
 
@@ -609,7 +611,7 @@ f_hist2 = zeros(pers,1);
 hist2(1,:) = [R_0,K_0,T_0];
 e_hist2(1) =  e_func(hist2(1,:)).*hist2(1,1);
 i_k_hist2(1) =  i_k_func(hist2(1,:)).*hist2(1,2);
-f_hist2(1) =  f_func(hist2(1,:)).*hist2(1,1);
+f_hist2(1) =  f_func(hist2(1,:)).*hist2(1,2);
 
 for j = 2:pers
 shock = normrnd(0,sqrt(dt), 1, nDims);
@@ -621,7 +623,7 @@ hist2(j,3) = max(min(hist2(j-1,3) + muT(hist2(j-1,:)) * dt + sigmaT(hist2(j-1,:)
 
 e_hist2(j) = e_func(hist2(j-1,:)).*hist2(j-1,1);
 i_k_hist2(j) = i_k_func(hist2(j-1,:)).*hist2(j-1,2);
-f_hist2(j) =  f_func(hist2(j-1,:)).*hist2(j-1,1);
+f_hist2(j) =  f_func(hist2(j-1,:)).*hist2(j-1,2);
 
 end
 
@@ -652,7 +654,7 @@ base_model_flow = quad_int(base_model_flow_func, a, b, n,'legendre');
 flow_base = base_model_flow;
 
 A = -delta.*ones(size(r_mat));
-B_r = -e+Gamma_r.*(f.^Theta_r)-0.5.*(sigma_r.^2);
+B_r = -e+Gamma_r.*(f.^Theta_r).*exp(Theta_r.*(k_mat-r_mat))-0.5.*(sigma_r.^2);
 B_k = Alpha+Gamma.*log(1+i_k./Theta)-0.5.*(sigma_k.^2);
 B_t = e.*exp(r_mat);
 C_rr = 0.5.*sigma_r.^2.*ones(size(r_mat));
@@ -715,7 +717,7 @@ flow_tilted = pi_tilde_1_norm.*nordhaus_model_flow ...
     +(1-pi_tilde_1_norm).*weitzman_model_flow;
 
 A = -delta.*ones(size(r_mat));
-B_r = -e+Gamma_r.*(f.^Theta_r)-0.5.*(sigma_r.^2);
+B_r = -e+Gamma_r.*(f.^Theta_r).*exp(Theta_r.*(k_mat-r_mat))-0.5.*(sigma_r.^2);
 B_k = Alpha+Gamma.*log(1+i_k./Theta)-0.5.*(sigma_k.^2);
 B_t = e.*exp(r_mat);
 C_rr = 0.5.*sigma_r.^2.*ones(size(r_mat));
@@ -781,7 +783,7 @@ f = Model1.f;
 e = Model1.e;
 expec_e_sum = Model1.expec_e_sum;
 
-MC = delta.*(1-alpha)./(A_O.*exp(k_mat)-i_k.*exp(k_mat)-f.*exp(r_mat));
+MC = delta.*(1-alpha)./(A_O.*exp(k_mat)-i_k.*exp(k_mat)-f.*exp(k_mat));
 ME = delta.*alpha./(e.*exp(r_mat));
 SCC = 1000*ME./MC;
 SCC_func = griddedInterpolant(r_mat,t_mat,k_mat,SCC,'spline');
