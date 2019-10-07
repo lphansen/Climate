@@ -1,6 +1,6 @@
 %%%%% This file generates results for the Competitive model SCC results.
 % Authors: Mike Barnett, Jieyao Wang
-% Last update: Sep 27,2019
+% Last update: Oct 07,2019
 close all
 clear all
 clc
