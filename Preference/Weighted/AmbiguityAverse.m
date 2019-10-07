@@ -1,6 +1,6 @@
 %%%%% This file generates results for the Ambiguity Averse model.
 % Authors: Mike Barnett, Jieyao Wang
-% Last update: Sep 27,2019
+% Last update: Oct 7th, 2019
 close all
 clear all
 clc
@@ -216,6 +216,7 @@ disp(['Error: ', num2str(max(max(max(abs(out_comp - v1_initial)))))])
 v0 = v0.*ones(size(v0));
 v0 = reshape(out,size(v0));
 
+eta = 0.01;
 
 while (max(max(max(abs(out_comp - vold))))) > tol % check for convergence
    tic
@@ -254,15 +255,28 @@ while (max(max(max(abs(out_comp - vold))))) > tol % check for convergence
 
 
     e_hat = e_star;
-   
-    f = ((delta.*(1-alpha)./Theta.*A_O-f.*delta.*(1-alpha)./Theta+delta.*(1-alpha)) ...
-       ./(exp(Theta_r.*(r_mat-k_mat)).*(delta.*(1-alpha)./Theta+Gamma./Theta.*v0_dk).*delta.*(1-alpha)./(v0_dr.*Theta_r.*Gamma_r))) ...
-       .^(1./(1-Theta_r));   
-    f = f.*(v0_dr>1e-8);
+    q0 = delta.*(1-alpha)./(A_O-i_k-f);
+    q = q0;
 
-    i_k = (A_O-f-(delta.*(1-alpha))./(v0_dr.*Gamma_r.*Theta_r).*f.^(1-Theta_r).*exp(Theta_r.*(r_mat-k_mat))).*(v0_dr>1e-8)...
-        + (v0_dr<=1e-8).*(v0_dk.*Gamma.*A_O - delta.*(1-alpha).*Theta)./(delta.*(1-alpha)+v0_dk.*Gamma);
+    Converged = 0;
+    
+    while Converged == 0
+        istar = (Gamma./Theta.*v0_dk./q - 1).*Theta;
+        jstar = (q.*exp(Theta_r.*(r_mat-k_mat))./((v0_dr).*Gamma_r.*Theta_r)).^(1./(Theta_r - 1));
+        if A_O > (istar+jstar)
+            qstar = eta.*delta.*(1-alpha)./(A_O-istar-jstar)+(1-eta).*q;
+        else
+            qstar = 2.*q;
+        end
 
+        if (max(max(max(max(abs(istar-i_k)))))<=1e-8) && (max(max(max(max(abs(jstar-f)))))<=1e-8)
+            Converged = 1; 
+        end
+        q = qstar;
+        i_k = istar.*(v0_dr>1e-8)+(v0_dr<=1e-8).*(v0_dk.*Gamma.*A_O - delta.*(1-alpha).*Theta)./(delta.*(1-alpha)+v0_dk.*Gamma);
+        f = jstar.*(v0_dr>1e-8);
+    end
+    
     a_1 = zeros(size(r_mat));
     b_1 = xi_d.*e_hat.*exp(r_mat).*gamma_1;
     c_1 = 2.*xi_d.*e_hat.*exp(r_mat).*t_mat.*gamma_2;
