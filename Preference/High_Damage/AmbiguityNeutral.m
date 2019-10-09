@@ -216,7 +216,7 @@ disp(['Error: ', num2str(max(max(max(abs(out_comp - v1_initial)))))])
 v0 = v0.*ones(size(v0));
 v0 = reshape(out,size(v0));
 
-
+eta = 0.01;
 while (max(max(max(abs(out_comp - vold))))) > tol % check for convergence
    tic
    vold = v0 .* ones(size(v0));
@@ -255,13 +255,27 @@ while (max(max(max(abs(out_comp - vold))))) > tol % check for convergence
 
     e_hat = e_star;
    
-    j = ((delta.*(1-kappa).*phi_1.*alpha-j.*delta.*(1-kappa).*phi_1+delta.*(1-kappa)) ...
-       ./(exp(psi_1.*(r_mat-k_mat)).*(delta.*(1-kappa).*phi_1+phi_0.*phi_1.*v0_dk).*delta.*(1-kappa)./(v0_dr.*psi_1.*psi_0))) ...
-       .^(1./(1-psi_1)); 
-    j = j.*(v0_dr>1e-8);
+    q0 = delta.*(1-kappa)./(alpha-i_k-j);
+    q = q0;
 
-    i_k = (alpha-j-(delta.*(1-kappa))./(v0_dr.*psi_0.*psi_1).*j.^(1-psi_1).*exp(psi_1.*(r_mat-k_mat))).*(v0_dr>1e-8)...
-        + (v0_dr<=1e-8).*(v0_dk.*phi_0.*alpha - delta.*(1-kappa)./phi_1)./(delta.*(1-kappa)+v0_dk.*phi_0);
+    Converged = 0;
+    
+    while Converged == 0
+        istar = (phi_0.*phi_1.*v0_dk./q - 1)./phi_1;
+        jstar = (q.*exp(psi_1.*(r_mat-k_mat))./((v0_dr).*psi_1.*psi_1)).^(1./(psi_1 - 1));
+        if alpha > (istar+jstar)
+            qstar = eta.*delta.*(1-kappa)./(alpha-istar-jstar)+(1-eta).*q;
+        else
+            qstar = 2.*q;
+        end
+
+        if (max(max(max(max(abs(istar-i_k)))))<=1e-8) && (max(max(max(max(abs(jstar-j)))))<=1e-8)
+            Converged = 1; 
+        end
+        q = qstar;
+        i_k = istar.*(v0_dr>1e-8)+(v0_dr<=1e-8).*(v0_dk.*phi_0.*alpha - delta.*(1-kappa)./phi_1)./(delta.*(1-kappa)+v0_dk.*phi_0);
+        j = jstar.*(v0_dr>1e-8);
+    end
 
     a_1 = zeros(size(r_mat));
     b_1 = xi_d.*e_hat.*exp(r_mat).*gamma_1;
