@@ -1,6 +1,6 @@
 %%%%% This file generates results for the Competitive model SCC results.
 % Authors: Mike Barnett, Jieyao Wang
-% Last update: Oct 08,2019
+% Last update: Oct 10,2019
 close all
 clear all
 clc
@@ -264,20 +264,27 @@ while (max(max(max(abs(out_comp - vold))))) > tol % check for convergence
     
     while Converged == 0
         istar = (phi_0.*phi_1.*v0_dk./q - 1)./phi_1;
-        jstar = (q.*exp(psi_1.*(r_mat-k_mat))./((v0_dr).*psi_1.*psi_1)).^(1./(psi_1 - 1));
+        jstar = (q.*exp(psi_1.*(r_mat-k_mat))./((v0_dr).*psi_0.*psi_1)).^(1./(psi_1 - 1));
         if alpha > (istar+jstar)
             qstar = eta.*delta.*(1-kappa)./(alpha-istar-jstar)+(1-eta).*q;
         else
             qstar = 2.*q;
         end
-
-        if (max(max(max(max(abs(istar-i_k)))))<=1e-8) && (max(max(max(max(abs(jstar-j)))))<=1e-8)
+        
+        if (max(max(max(max(abs(jstar-j)))))<=1e-8)... && (max(max(max(max(abs(istar-i_k)))))<=1e-8)
             Converged = 1; 
         end
+        
         q = qstar;
-        i_k = istar.*(v0_dr>1e-8)+(v0_dr<=1e-8).*(v0_dk.*phi_0.*alpha - delta.*(1-kappa)./phi_1)./(delta.*(1-kappa)+v0_dk.*phi_0);
-        j = jstar.*(v0_dr>1e-8);
+        % i_k = istar;
+        j = jstar;
+        
+        nums = nums+1;
     end
+
+    j = jstar.*(v0_dr>1e-8);
+    i_k = (alpha-j-(delta.*(1-kappa))./(v0_dr.*psi_0.*psi_1).*j.^(1-psi_1).*exp(psi_1.*(r_mat-k_mat))).*(v0_dr>1e-8)...
+        + (v0_dr<=1e-8).*(v0_dk.*phi_0.*alpha - delta.*(1-kappa)./phi_1)./(delta.*(1-kappa)+v0_dk.*phi_0);
 
 
     a_1 = zeros(size(r_mat));
@@ -507,20 +514,27 @@ while (max(max(max(abs(out_comp - vold))))) > tol
     
     while Converged == 0
         istar = (phi_0.*phi_1.*v0_dk./q - 1)./phi_1;
-        jstar = (q.*exp(psi_1.*(r_mat-k_mat))./((v0_dr).*psi_1.*psi_1)).^(1./(psi_1 - 1));
+        jstar = (q.*exp(psi_1.*(r_mat-k_mat))./((v0_dr).*psi_0.*psi_1)).^(1./(psi_1 - 1));
         if alpha > (istar+jstar)
             qstar = eta.*delta.*(1-kappa)./(alpha-istar-jstar)+(1-eta).*q;
         else
             qstar = 2.*q;
         end
-
-        if (max(max(max(max(abs(istar-i_k)))))<=1e-8) && (max(max(max(max(abs(jstar-j)))))<=1e-8)
+        
+        if (max(max(max(max(abs(jstar-j)))))<=1e-8)... && (max(max(max(max(abs(istar-i_k)))))<=1e-8)
             Converged = 1; 
         end
+        
         q = qstar;
-        i_k = istar.*(v0_dr>1e-8)+(v0_dr<=1e-8).*(v0_dk.*phi_0.*alpha - delta.*(1-kappa)./phi_1)./(delta.*(1-kappa)+v0_dk.*phi_0);
-        j = jstar.*(v0_dr>1e-8);
+        % i_k = istar;
+        j = jstar;
+        
+        nums = nums+1;
     end
+
+    j = jstar.*(v0_dr>1e-8);
+    i_k = (alpha-j-(delta.*(1-kappa))./(v0_dr.*psi_0.*psi_1).*j.^(1-psi_1).*exp(psi_1.*(r_mat-k_mat))).*(v0_dr>1e-8)...
+        + (v0_dr<=1e-8).*(v0_dk.*phi_0.*alpha - delta.*(1-kappa)./phi_1)./(delta.*(1-kappa)+v0_dk.*phi_0);
 
     A = -delta.*ones(size(r_mat));
     B_r = -e+psi_0.*(j.^psi_1).*exp(psi_1.*(k_mat-r_mat))-0.5.*(sigma_r.^2);

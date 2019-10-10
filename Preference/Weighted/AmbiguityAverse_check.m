@@ -29,7 +29,7 @@ alpha = 0.115000000000000;
 phi_0 = 0.0600;
 phi_1 = 16.666666666666668;
 mu_k = -0.034977443912449;
-Gamma_r = 0.112733407891680;
+psi_0 = 0.112733407891680;
 psi_1 = 0.142857142857143;
 power = 2;
 gamma_1 =  0.00017675;
@@ -125,11 +125,11 @@ e = -C1./B1;
 e_hat = e;
 
 Acoeff = ones(size(r_mat));
-Bcoeff = ((delta.*(1-kappa).*phi_1+phi_0.*phi_1.*v0_dk).*delta.*(1-kappa)./(v0_dr.*Gamma_r.*0.5)...
+Bcoeff = ((delta.*(1-kappa).*phi_1+phi_0.*phi_1.*v0_dk).*delta.*(1-kappa)./(v0_dr.*psi_0.*0.5)...
     .*exp(0.5.*(r_mat-k_mat)))./(delta.*(1-kappa).*phi_1);
 Ccoeff = -alpha - 1./phi_1;
 j = ((-Bcoeff+sqrt(Bcoeff.^2 - 4.*Acoeff.*Ccoeff))./(2.*Acoeff)).^(2);
-i_k = alpha-j-(delta.*(1-kappa))./(v0_dr.*Gamma_r.*0.5).*j.^0.5.*exp(0.5.*(r_mat-k_mat));
+i_k = alpha-j-(delta.*(1-kappa))./(v0_dr.*psi_0.*0.5).*j.^0.5.*exp(0.5.*(r_mat-k_mat));
 
 % update prob.
 a_1 = zeros(size(r_mat));
@@ -188,7 +188,7 @@ RE_total = 1.*xi_p.*RE;
 
 % inputs for solver
 A = -delta.*ones(size(r_mat));
-B_r = -e_star+Gamma_r.*(j.^psi_1).*exp(psi_1.*(k_mat-r_mat))-0.5.*(sigma_r.^2);
+B_r = -e_star+psi_0.*(j.^psi_1).*exp(psi_1.*(k_mat-r_mat))-0.5.*(sigma_r.^2);
 B_k = mu_k+phi_0.*log(1+i_k.*phi_1)-0.5.*(sigma_k.^2);
 B_t = e_star.*exp(r_mat);
 C_rr = 0.5.*sigma_r.^2.*ones(size(r_mat));
@@ -262,20 +262,27 @@ while (max(max(max(abs(out_comp - vold))))) > tol % check for convergence
     
     while Converged == 0
         istar = (phi_0.*phi_1.*v0_dk./q - 1)./phi_1;
-        jstar = (q.*exp(psi_1.*(r_mat-k_mat))./((v0_dr).*Gamma_r.*psi_1)).^(1./(psi_1 - 1));
+        jstar = (q.*exp(psi_1.*(r_mat-k_mat))./((v0_dr).*psi_0.*psi_1)).^(1./(psi_1 - 1));
         if alpha > (istar+jstar)
             qstar = eta.*delta.*(1-kappa)./(alpha-istar-jstar)+(1-eta).*q;
         else
             qstar = 2.*q;
         end
-
-        if (max(max(max(max(abs(istar-i_k)))))<=1e-8) && (max(max(max(max(abs(jstar-j)))))<=1e-8)
+        
+        if (max(max(max(max(abs(jstar-j)))))<=1e-8)... && (max(max(max(max(abs(istar-i_k)))))<=1e-8)
             Converged = 1; 
         end
+        
         q = qstar;
-        i_k = istar.*(v0_dr>1e-8)+(v0_dr<=1e-8).*(v0_dk.*phi_0.*alpha - delta.*(1-kappa)./phi_1)./(delta.*(1-kappa)+v0_dk.*phi_0);
-        j = jstar.*(v0_dr>1e-8);
+        % i_k = istar;
+        j = jstar;
+        
+        nums = nums+1;
     end
+
+    j = jstar.*(v0_dr>1e-8);
+    i_k = (alpha-j-(delta.*(1-kappa))./(v0_dr.*psi_0.*psi_1).*j.^(1-psi_1).*exp(psi_1.*(r_mat-k_mat))).*(v0_dr>1e-8)...
+        + (v0_dr<=1e-8).*(v0_dk.*phi_0.*alpha - delta.*(1-kappa)./phi_1)./(delta.*(1-kappa)+v0_dk.*phi_0);
     
     a_1 = zeros(size(r_mat));
     b_1 = xi_d.*e_hat.*exp(r_mat).*gamma_1;
@@ -336,7 +343,7 @@ while (max(max(max(abs(out_comp - vold))))) > tol % check for convergence
     RE_total = 1.*xi_p.*RE;
 
     A = -delta.*ones(size(r_mat));
-    B_r = -e_star+Gamma_r.*(j.^psi_1).*exp(psi_1.*(k_mat-r_mat))-0.5.*(sigma_r.^2);
+    B_r = -e_star+psi_0.*(j.^psi_1).*exp(psi_1.*(k_mat-r_mat))-0.5.*(sigma_r.^2);
     B_k = mu_k+phi_0.*log(1+i_k.*phi_1)-0.5.*(sigma_k.^2);
     B_t = e_star.*exp(r_mat);
     C_rr = 0.5.*sigma_r.^2.*ones(size(r_mat));
@@ -453,7 +460,7 @@ D_0_tilted = pi_tilde_1_func(initial_val).*nordhaus_drift_func(initial_val)...
     +(1-pi_tilde_1_func(initial_val)).*weitzman_drift_func(initial_val);
 
 % function handles
-muR = @(x) -e_func(x)+Gamma_r.*(j_func(x).*x(:,2)./x(:,1)).^psi_1;
+muR = @(x) -e_func(x)+psi_0.*(j_func(x).*x(:,2)./x(:,1)).^psi_1;
 muK = @(x) (mu_k + phi_0.*log(1+i_k_func(x).*phi_1));
 muF = @(x) e_func(x).*x(:,1);
 muD_base = @(x) base_drift_func(x);
@@ -562,7 +569,7 @@ flow_base = base_model_flow;
 
 % inputs for solver
 A = -delta.*ones(size(r_mat));
-B_r = -e+Gamma_r.*(j.^psi_1).*exp(psi_1.*(k_mat-r_mat))-0.5.*(sigma_r.^2);
+B_r = -e+psi_0.*(j.^psi_1).*exp(psi_1.*(k_mat-r_mat))-0.5.*(sigma_r.^2);
 B_k = mu_k+phi_0.*log(1+i_k.*phi_1)-0.5.*(sigma_k.^2);
 B_t = e.*exp(r_mat);
 C_rr = 0.5.*sigma_r.^2.*ones(size(r_mat));
@@ -625,7 +632,7 @@ flow_tilted = pi_tilde_1_norm.*nordhaus_model_flow ...
     +(1-pi_tilde_1_norm).*weitzman_model_flow;
 
 A = -delta.*ones(size(r_mat));
-B_r = -e+Gamma_r.*(j.^psi_1).*exp(psi_1.*(k_mat-r_mat))-0.5.*(sigma_r.^2);
+B_r = -e+psi_0.*(j.^psi_1).*exp(psi_1.*(k_mat-r_mat))-0.5.*(sigma_r.^2);
 B_k = mu_k+phi_0.*log(1+i_k.*phi_1)-0.5.*(sigma_k.^2);
 B_t = e.*exp(r_mat);
 C_rr = 0.5.*sigma_r.^2.*ones(size(r_mat));
