@@ -215,7 +215,7 @@ out_comp = reshape(out,size(v0)).*ones(size(r_mat));
 disp(['Error: ', num2str(max(max(max(abs(out_comp - v1_initial)))))])
 v0 = v0.*ones(size(v0));
 v0 = reshape(out,size(v0));
-
+q = delta.*(1-kappa)./(alpha-i_k-j);
 eta = 0.1;
 
 while (max(max(max(abs(out_comp - vold))))) > tol % check for convergence
