@@ -272,7 +272,7 @@ while (max(max(max(abs(out_comp - vold))))) > tol % check for convergence
             qstar = 2.*q;
         end
         
-        if (max(max(max(max(abs((jstar-j)./eta)))))<=1e-5)... && (max(max(max(max(abs(istar-i_k)))))<=1e-8)
+        if (max(max(max(max(abs((qstar-q)./eta)))))<=1e-5)... && (max(max(max(max(abs(istar-i_k)))))<=1e-8)
             Converged = 1; 
         end
         
