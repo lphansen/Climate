@@ -222,21 +222,21 @@ while (max(max(max(abs(out_comp - vold))))) > tol % check for convergence
    tic
    vold = v0 .* ones(size(v0));
 
-    v0_dt = zeros(size(v0));
-    v0_dt(:,2:end-1,:) = (1./(2.*ht)).*(v0(:,3:end,:)-v0(:,1:end-2,:));
-    v0_dt(:,end,:) = (1./ht).*(v0(:,end,:)-v0(:,end-1,:));
-    v0_dt(:,1,:) = (1./ht).*(v0(:,2,:)-v0(:,1,:));
+       v0_dt = zeros(size(v0));
+       v0_dt(:,2:end-1,:) = (1./(ht)).*(v0(:,3:end,:)-v0(:,2:end-1,:));
+       v0_dt(:,end,:) = (1./ht).*(v0(:,end,:)-v0(:,end-1,:));
+       v0_dt(:,1,:) = (1./ht).*(v0(:,2,:)-v0(:,1,:));
 
-    v0_dr = zeros(size(v0));
-    v0_dr(2:end-1,:,:) = (1./(2.*hr)).*(v0(3:end,:,:)-v0(1:end-2,:,:));
-    v0_dr(end,:,:) = (1./hr).*(v0(end,:,:)-v0(end-1,:,:));
-    v0_dr(1,:,:) = (1./hr).*(v0(2,:,:)-v0(1,:,:));
-    v0_dr(v0_dr<1e-8) = 1e-8;
+       v0_dr = zeros(size(v0));
+       v0_dr(2:end-1,:,:) = (1./(hr)).*(v0(2:end-1,:,:)-v0(1:end-2,:,:));
+       v0_dr(end,:,:) = (1./hr).*(v0(end,:,:)-v0(end-1,:,:));
+       v0_dr(1,:,:) = (1./hr).*(v0(2,:,:)-v0(1,:,:));
+       v0_dr(v0_dr<1e-8) = 1e-8;
 
-    v0_dk = zeros(size(v0));
-    v0_dk(:,:,2:end-1) = (1./(2.*hk)).*(v0(:,:,3:end)-v0(:,:,1:end-2));
-    v0_dk(:,:,end) = (1./hk).*(v0(:,:,end)-v0(:,:,end-1));
-    v0_dk(:,:,1) = (1./hk).*(v0(:,:,2)-v0(:,:,1));
+       v0_dk = zeros(size(v0));
+       v0_dk(:,:,2:end-1) = (1./(hk)).*(v0(:,:,3:end)-v0(:,:,2:end-1));
+       v0_dk(:,:,end) = (1./hk).*(v0(:,:,end)-v0(:,:,end-1));
+       v0_dk(:,:,1) = (1./hk).*(v0(:,:,2)-v0(:,:,1));
 
     v0_drr = zeros(size(v0));
     v0_drr(2:end-1,:,:) = (1./(hr.^2)).*(v0(3:end,:,:)+v0(1:end-2,:,:)-2.*v0(2:end-1,:,:));
