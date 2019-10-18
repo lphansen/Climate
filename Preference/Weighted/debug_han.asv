@@ -57,12 +57,4 @@
 
 
 j_result = load("HJB_NonLinPref_Cumu_jieyao.mat")
-m_result = load("HJB_NonLinPref_Cumu_mike.mat")
-
-
-
-
-
-
-
-
+m

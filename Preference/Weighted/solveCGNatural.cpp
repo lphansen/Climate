@@ -384,7 +384,7 @@ mexFunction(int nlhs,mxArray *plhs[],int nrhs,const mxArray *prhs[])
     Eigen::VectorXd XiEVector;
     Eigen::LeastSquaresConjugateGradient<SpMat > cgE;
     //cgE.setMaxIterations(10000);
-    cgE.setTolerance( 0.0000000000000001 );
+    cgE.setTolerance( 0.000000000001 );
     cgE.compute(linearSys_vars.Le);
     XiEVector = cgE.solveWithGuess(v0,v1);
     mexPrintf("CONJUGATE GRADIENT TOOK (number of iterations): %3i% \n",  cgE.iterations() );
