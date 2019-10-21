@@ -79,8 +79,8 @@ n = 30;
 a = beta_f-5.*sqrt(var_beta_f);
 b = beta_f+5.*sqrt(var_beta_f);
 
-tol = 1e-16; % tol
-dt = 0.5; % epsilon
+tol = 5e-5; % tol
+dt = 0.3; % epsilon
 v0 = (kappa).*r_mat+(1-kappa).*k_mat-beta_f.*F_mat; % initial guess
 v1_initial = v0.*ones(size(r_mat));
 out = v0;
@@ -239,31 +239,53 @@ v0 = reshape(out,size(v0));
 q = delta.*(1-kappa)./(alpha-i_k-j);
 % eta = 0.1;
 eta = 0.05
+pde_error = 1;
 
-while (max(max(max(abs(out_comp - vold))))) > tol % check for convergence
+while (max(max(max(abs(pde_error))))) > tol % check for convergence
    tic
    vold = v0 .* ones(size(v0));
 
+
+
+    stateSpace = [r_mat(:), F_mat(:), k_mat(:)]; 
+    model      = {};
+    model.A    = A(:); 
+    model.B    = [B_r(:), B_t(:), B_k(:)];
+    model.C    = [C_rr(:), C_tt(:), C_kk(:)];
+    model.D    = D(:);
+    model.v0   = v0(:);
+    model.dt   = dt;
+    
+    out = solveCGNatural(stateSpace, model);
+    out_comp = reshape(out,size(v0)).*ones(size(r_mat));
+
+    iter = iter+1;
+    disp(['Diff: ', num2str(max(max(max(abs(out_comp - vold))))),' Number of Iters: ',num2str(iter)])
+
+    v0 = v0.*ones(size(v0));
+    v0 = reshape(out,size(v0));
+    
+    
     v0_dt = zeros(size(v0));
 %     v0_dt(:,2:end-1,:) = (1./(ht)).*(v0(:,3:end,:)-v0(:,2:end-1,:));
-    v0_dt(:,2:end-1,:) = (1./(2.*ht)).*(v0(:,3:end,:)-v0(:,1:end-2,:));
-%     v0_dt(:,2:end-1,:) = (1./(ht)).*((v0(:,3:end,:)-v0(:,2:end-1,:)) .* (B_t(:,2:end-1,:)>=0) ...
-%                                 +(v0(:,2:end-1,:)-v0(:,1:end-2,:)) .* (B_t(:,2:end-1,:)<0));
+%     v0_dt(:,2:end-1,:) = (1./(2.*ht)).*(v0(:,3:end,:)-v0(:,1:end-2,:));
+    v0_dt(:,2:end-1,:) = (1./(ht)).*((v0(:,3:end,:)-v0(:,2:end-1,:)) .* (B_t(:,2:end-1,:)>=0) ...
+                                +(v0(:,2:end-1,:)-v0(:,1:end-2,:)) .* (B_t(:,2:end-1,:)<0));
     v0_dt(:,end,:) = (1./ht).*(v0(:,end,:)-v0(:,end-1,:));
     v0_dt(:,1,:) = (1./ht).*(v0(:,2,:)-v0(:,1,:));
 
     v0_dr = zeros(size(v0));
 %     v0_dr(2:end-1,:,:) = (1./(hr)).*(v0(2:end-1,:,:)-v0(1:end-2,:,:));
-    v0_dr(2:end-1,:,:) = (1./(2.*hr)).*(v0(3:end,:,:)-v0(1:end-2,:,:));
-%     v0_dr(2:end-1,:,:) = (1./(hr)).*((v0(3:end,:,:)-v0(2:end-1,:,:)) .* (B_r(2:end-1,:,:)>=0) ...
-%                             +(v0(2:end-1,:,:)-v0(1:end-2,:,:)) .* (B_r(2:end-1,:,:)<0));
+%     v0_dr(2:end-1,:,:) = (1./(2.*hr)).*(v0(3:end,:,:)-v0(1:end-2,:,:));
+    v0_dr(2:end-1,:,:) = (1./(hr)).*((v0(3:end,:,:)-v0(2:end-1,:,:)) .* (B_r(2:end-1,:,:)>=0) ...
+                            +(v0(2:end-1,:,:)-v0(1:end-2,:,:)) .* (B_r(2:end-1,:,:)<0));
     v0_dr(end,:,:) = (1./hr).*(v0(end,:,:)-v0(end-1,:,:));
     v0_dr(1,:,:) = (1./hr).*(v0(2,:,:)-v0(1,:,:));
 %     v0_dr(v0_dr<1e-8) = 1e-8;
 
     v0_dk = zeros(size(v0));
 %     v0_dk(:,:,2:end-1) = (1./(hk)).*(v0(:,:,3:end)-v0(:,:,2:end-1));
-    v0_dk(:,:,2:end-1) = (1./(2.*hk)).*(v0(:,:,3:end)-v0(:,:,1:end-2));
+%     v0_dk(:,:,2:end-1) = (1./(2.*hk)).*(v0(:,:,3:end)-v0(:,:,1:end-2));
     v0_dk(:,:,2:end-1) = (1./(hk)).*((v0(:,:,3:end)-v0(:,:,2:end-1)) .* (B_k(:,:,2:end-1)>=0) ...
                             +(v0(:,:,2:end-1)-v0(:,:,1:end-2)) .* (B_k(:,:,2:end-1)<0));
     v0_dk(:,:,end) = (1./hk).*(v0(:,:,end)-v0(:,:,end-1));
@@ -287,8 +309,9 @@ while (max(max(max(abs(out_comp - vold))))) > tol % check for convergence
     v0_dkk(:,:,2:end-1) = (1./(hk.^2)).*(v0(:,:,3:end)+v0(:,:,1:end-2)-2.*v0(:,:,2:end-1));
     v0_dkk(:,:,end) = (1./(hk.^2)).*(v0(:,:,end)+v0(:,:,end-2)-2.*v0(:,:,end-1));
     v0_dkk(:,:,1) = (1./(hk.^2)).*(v0(:,:,3)+v0(:,:,1)-2.*v0(:,:,2));
-
-
+    
+    
+    
     e_hat = e_star;
     
     q0 = q;
@@ -297,7 +320,6 @@ while (max(max(max(abs(out_comp - vold))))) > tol % check for convergence
 
     Converged = 0;
     nums = 0;
-    disp("Entering cobweb");
     while Converged == 0
         istar = (phi_0.*phi_1.*v0_dk./q - 1)./phi_1;
         jstar = (q.*exp(psi_1.*(r_mat-k_mat))./((v0_dr).*psi_0.*psi_1)).^(1./(psi_1 - 1));
@@ -317,7 +339,6 @@ while (max(max(max(abs(out_comp - vold))))) > tol % check for convergence
         
         nums = nums+1;
     end
-    disp("Ending cobweb");
     
     a_1 = zeros(size(r_mat));
     b_1 = xi_d.*e_hat.*exp(r_mat).*gamma_1;
@@ -388,26 +409,7 @@ while (max(max(max(abs(out_comp - vold))))) > tol % check for convergence
     D = delta.*kappa.*log(e_star)+delta.*kappa.*r_mat ...
         + delta.*(1-kappa).*(log(alpha-i_k-j)+(k_mat)) ...
         + drift_distort + RE_total;   
-
-    stateSpace = [r_mat(:), F_mat(:), k_mat(:)]; 
-    model      = {};
-    model.A    = A(:); 
-    model.B    = [B_r(:), B_t(:), B_k(:)];
-    model.C    = [C_rr(:), C_tt(:), C_kk(:)];
-    model.D    = D(:);
-    model.v0   = v0(:);
-    model.dt   = dt;
     
-    disp("Entering CG");
-    out = solveCGNatural(stateSpace, model);
-    disp("Finished CG");
-    out_comp = reshape(out,size(v0)).*ones(size(r_mat));
-
-    iter = iter+1;
-    disp(['Diff: ', num2str(max(max(max(abs(out_comp - vold))))),' Number of Iters: ',num2str(iter)])
-
-    v0 = v0.*ones(size(v0));
-    v0 = reshape(out,size(v0));
 
     pde_error = A.*v0+B_r.*v0_dr+B_t.*v0_dt+B_k.*v0_dk+C_rr.*v0_drr+C_kk.*v0_dkk+C_tt.*v0_dtt+D;
     disp(['PDE Error: ', num2str(max(max(max(abs(pde_error)))))]) % check equation
