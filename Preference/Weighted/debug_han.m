@@ -56,13 +56,27 @@
 % sum(abs(a_result.v0 - b_result.v0),'all')
 
 
-j_result = load("HJB_NonLinPref_Cumu_jieyao.mat")
-m_result = load("HJB_NonLinPref_Cumu_mike.mat")
+% j_result = load("HJB_NonLinPref_Cumu_jieyao.mat")
+% m_result = load("HJB_NonLinPref_Cumu_mike.mat")
+
+% baseline
+base_coarse = load("C:\\Users\\hanxuh\\Google Drive\\MFR\\github\\Climate\\Preference\\Weighted\\HJB_NonLinPref_Cumu_Sims_F4000_R90_K90.mat")
+base_fine = load("C:\\Users\\hanxuh\\Google Drive\\MFR\\github\\Climate\\Preference\\Weighted\\HJB_NonLinPref_Cumu_Sims_F4000_R90_K90_D150.mat")
+
+% 50% more length
+long_coarse = load("C:\\Users\\hanxuh\\Google Drive\\MFR\\github\\Climate\\Preference\\Weighted\\HJB_NonLinPref_Cumu_Sims_F6000_R135_K135.mat")
+long_fine = load("C:\\Users\\hanxuh\\Google Drive\\MFR\\github\\Climate\\Preference\\Weighted\\HJB_NonLinPref_Cumu_Sims_F6000_R135_K135_D150.mat")
+
+% figure()
+% plot(base_coarse.j_hists2)
+% hold on
+% plot(base_fine.j_hists2)
+% hold off
 
 
-
-
-
-
-
+figure()
+plot(long_coarse.j_hists2)
+hold on
+plot(long_fine.j_hists2)
+hold off
 
