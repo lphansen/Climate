@@ -7,10 +7,11 @@ clc
 
 %% Step 0: set up solver
 %%%%% change to location of the solver
-addpath('/mnt/ide0/home/wangjieyao/Climate/FT/')
-addpath('/home/wangjieyao/FT/')
-addpath('/Volumes/homes/FT/')
-addpath('/Volumes/wangjieyao/Climate/FT')
+% addpath('/mnt/ide0/home/wangjieyao/Climate/FT/')
+% addpath('/home/wangjieyao/FT/')
+% addpath('/Volumes/homes/FT/')
+% addpath('/Volumes/wangjieyao/Climate/FT')
+addpath('C:\Users\hanxuh\Google Drive\MFR\github\Climate\Preference\Weighted')
 
 %% Step 1: Set up parameters
 
@@ -54,20 +55,56 @@ xi_p = 1./4500; % ambiguity parameter
 
 %% Step 2: solve HJB
 r_min = 0;
-r_max = 9; %r = logR
+r_max = 13.5 ; %r = logR
 F_min = 0;
-F_max = 4000;
+F_max = 6000;
 k_min = 0;
-k_max = 9; %k = logK
-nr = 30;
-nF = 40;
-nk = 25;
-r = linspace(r_min,r_max,nr)';
-t = linspace(F_min,F_max,nF)';
-k = linspace(k_min,k_max,nk)';
-hr = r(2) - r(1);
-hk = k(2) - k(1);
-ht = t(2) - t(1);
+k_max = 13.5; %k = logK
+% nr = 30;
+% nr = 90;
+% nF = 40;
+% nF = 40;
+% nk = 25;
+% nk = 30;
+% r = linspace(r_min,r_max,nr)';
+% t = linspace(F_min,F_max,nF)';
+% k = linspace(k_min,k_max,nk)';
+% Han: variable grid for r
+r_coarse_step = 0.1;
+r_fine_step = 0.025;
+r_fine_start = 5+r_fine_step;
+r_fine_end = 9;
+
+r_1 = r_min:r_coarse_step:r_fine_start-r_fine_step;
+r_2 = r_fine_start:r_fine_step:r_fine_end;
+r_3 = r_fine_end+r_coarse_step:r_coarse_step:r_max;
+r = [r_1,r_2,r_3];
+
+% Han: variable grid for F
+F_coarse_step = 100;
+F_fine_step = 25;
+F_fine_start = 200+r_fine_step;
+F_fine_end = 1200;
+
+t_1 = F_min:F_coarse_step:F_fine_start-F_fine_step;
+t_2 = F_fine_start:F_fine_step:F_fine_end;
+t_3 = F_fine_end+F_coarse_step:F_coarse_step:F_max;
+t = [t_1,t_2,t_3];
+
+% Han: grid for K
+k = k_min:0.3:k_max;
+
+% hr = r(2) - r(1);
+% hk = k(2) - k(1);
+% ht = t(2) - t(1);
+
+
+
+% Han: use vector of difference 
+hr = r(:,2:end)-r(:,1:end-1);
+hk = k(:,2:end)-k(:,1:end-1);
+ht = t(:,2:end)-t(:,1:end-1);
+
 [r_mat,F_mat,k_mat] = ndgrid(r,t,k); 
 
 quadrature = 'legendre';
@@ -75,7 +112,7 @@ n = 30;
 a = beta_f-5.*sqrt(var_beta_f);
 b = beta_f+5.*sqrt(var_beta_f);
 
-tol = 1e-16; % tol
+tol = 1e-12; % tol
 dt = 0.5; % epsilon
 v0 = (kappa).*r_mat+(1-kappa).*k_mat-beta_f.*F_mat; % initial guess
 v1_initial = v0.*ones(size(r_mat));
@@ -86,36 +123,62 @@ iter = 1;
 v0 = v0.*ones(size(v0));
 v0 = reshape(out,size(v0));
 
-v0_dt = zeros(size(v0));
-v0_dt(:,2:end-1,:) = (1./(2.*ht)).*(v0(:,3:end,:)-v0(:,1:end-2,:));
-v0_dt(:,end,:) = (1./ht).*(v0(:,end,:)-v0(:,end-1,:));
-v0_dt(:,1,:) = (1./ht).*(v0(:,2,:)-v0(:,1,:));
+% v0_dt = zeros(size(v0));
+% v0_dt(:,2:end-1,:) = (1./(2.*ht)).*(v0(:,3:end,:)-v0(:,1:end-2,:));
+% v0_dt(:,end,:) = (1./ht).*(v0(:,end,:)-v0(:,end-1,:));
+% v0_dt(:,1,:) = (1./ht).*(v0(:,2,:)-v0(:,1,:));
+v0_dt = finiteDifference(v0,2,1,ht,'central');
 
-v0_dr = zeros(size(v0));
-v0_dr(2:end-1,:,:) = (1./(2.*hr)).*(v0(3:end,:,:)-v0(1:end-2,:,:));
-v0_dr(end,:,:) = (1./hr).*(v0(end,:,:)-v0(end-1,:,:));
-v0_dr(1,:,:) = (1./hr).*(v0(2,:,:)-v0(1,:,:));
-v0_dr(v0_dr<1e-8) = 1e-8;
+% v0_dr = zeros(size(v0));
+% v0_dr(2:end-1,:,:) = (1./(2.*hr)).*(v0(3:end,:,:)-v0(1:end-2,:,:));
+% v0_dr(end,:,:) = (1./hr).*(v0(end,:,:)-v0(end-1,:,:));
+% v0_dr(1,:,:) = (1./hr).*(v0(2,:,:)-v0(1,:,:));
+% v0_dr(v0_dr<1e-16) = 1e-16;
+v0_dr = finiteDifference(v0,1,1,hr,'central',1e-16);
 
-v0_dk = zeros(size(v0));
-v0_dk(:,:,2:end-1) = (1./(2.*hk)).*(v0(:,:,3:end)-v0(:,:,1:end-2));
-v0_dk(:,:,end) = (1./hk).*(v0(:,:,end)-v0(:,:,end-1));
-v0_dk(:,:,1) = (1./hk).*(v0(:,:,2)-v0(:,:,1));
+% v0_dk = zeros(size(v0));
+% v0_dk(:,:,2:end-1) = (1./(2.*hk)).*(v0(:,:,3:end)-v0(:,:,1:end-2));
+% v0_dk(:,:,end) = (1./hk).*(v0(:,:,end)-v0(:,:,end-1));
+% v0_dk(:,:,1) = (1./hk).*(v0(:,:,2)-v0(:,:,1));
+v0_dk = finiteDifference(v0,3,1,hk,'central');
 
-v0_drr = zeros(size(v0));
-v0_drr(2:end-1,:,:) = (1./(hr.^2)).*(v0(3:end,:,:)+v0(1:end-2,:,:)-2.*v0(2:end-1,:,:));
-v0_drr(end,:,:) = (1./(hr.^2)).*(v0(end,:,:)+v0(end-2,:,:)-2.*v0(end-1,:,:));
-v0_drr(1,:,:) = (1./(hr.^2)).*(v0(3,:,:)+v0(1,:,:)-2.*v0(2,:,:));
+% v0_dt = zeros(size(v0));
+% v0_dt(:,2:end-1,:) = (1./(2.*ht)).*(v0(:,3:end,:)-v0(:,1:end-2,:));
+% v0_dt(:,end,:) = (1./ht).*(v0(:,end,:)-v0(:,end-1,:));
+% v0_dt(:,1,:) = (1./ht).*(v0(:,2,:)-v0(:,1,:));
+% 
+% v0_dr = zeros(size(v0));
+% v0_dr(2:end-1,:,:) = (1./(2.*hr)).*(v0(3:end,:,:)-v0(1:end-2,:,:));
+% v0_dr(end,:,:) = (1./hr).*(v0(end,:,:)-v0(end-1,:,:));
+% v0_dr(1,:,:) = (1./hr).*(v0(2,:,:)-v0(1,:,:));
+% v0_dr(v0_dr<1e-8) = 1e-8;
+% 
+% v0_dk = zeros(size(v0));
+% v0_dk(:,:,2:end-1) = (1./(2.*hk)).*(v0(:,:,3:end)-v0(:,:,1:end-2));
+% v0_dk(:,:,end) = (1./hk).*(v0(:,:,end)-v0(:,:,end-1));
+% v0_dk(:,:,1) = (1./hk).*(v0(:,:,2)-v0(:,:,1));
 
-v0_dtt = zeros(size(v0));
-v0_dtt(:,2:end-1,:) = (1./(ht.^2)).*(v0(:,3:end,:)+v0(:,1:end-2,:)-2.*v0(:,2:end-1,:));
-v0_dtt(:,end,:) = (1./(ht.^2)).*(v0(:,end,:)+v0(:,end-2,:)-2.*v0(:,end-1,:));
-v0_dtt(:,1,:) = (1./(ht.^2)).*(v0(:,3,:)+v0(:,1,:)-2.*v0(:,2,:));
 
-v0_dkk = zeros(size(v0));
-v0_dkk(:,:,2:end-1) = (1./(hk.^2)).*(v0(:,:,3:end)+v0(:,:,1:end-2)-2.*v0(:,:,2:end-1));
-v0_dkk(:,:,end) = (1./(hk.^2)).*(v0(:,:,end)+v0(:,:,end-2)-2.*v0(:,:,end-1));
-v0_dkk(:,:,1) = (1./(hk.^2)).*(v0(:,:,3)+v0(:,:,1)-2.*v0(:,:,2));
+
+% v0_drr = zeros(size(v0));
+% v0_drr(2:end-1,:,:) = (1./(hr.^2)).*(v0(3:end,:,:)+v0(1:end-2,:,:)-2.*v0(2:end-1,:,:));
+% v0_drr(end,:,:) = (1./(hr.^2)).*(v0(end,:,:)+v0(end-2,:,:)-2.*v0(end-1,:,:));
+% v0_drr(1,:,:) = (1./(hr.^2)).*(v0(3,:,:)+v0(1,:,:)-2.*v0(2,:,:));
+v0_dtt = finiteDifference(v0,2,2,ht,'central');
+
+% v0_dtt = zeros(size(v0));
+% v0_dtt(:,2:end-1,:) = (1./(ht.^2)).*(v0(:,3:end,:)+v0(:,1:end-2,:)-2.*v0(:,2:end-1,:));
+% v0_dtt(:,end,:) = (1./(ht.^2)).*(v0(:,end,:)+v0(:,end-2,:)-2.*v0(:,end-1,:));
+% v0_dtt(:,1,:) = (1./(ht.^2)).*(v0(:,3,:)+v0(:,1,:)-2.*v0(:,2,:));
+v0_drr = finiteDifference(v0,1,2,hr,'central');
+v0_drr(v0_dr<=1e-16)=0;
+
+% v0_dkk = zeros(size(v0));
+% v0_dkk(:,:,2:end-1) = (1./(hk.^2)).*(v0(:,:,3:end)+v0(:,:,1:end-2)-2.*v0(:,:,2:end-1));
+% v0_dkk(:,:,end) = (1./(hk.^2)).*(v0(:,:,end)+v0(:,:,end-2)-2.*v0(:,:,end-1));
+% v0_dkk(:,:,1) = (1./(hk.^2)).*(v0(:,:,3)+v0(:,:,1)-2.*v0(:,:,2));
+v0_dkk = finiteDifference(v0,3,2,hk,'central');
+
 
 % FOC
 B1 = v0_dr-xi_d.*(gamma_1(1)+gamma_2(1)*(F_mat).*beta_f+gamma_2_plus(1).*(F_mat.*beta_f-gamma_bar).^(power-1).*(F_mat>=(crit./beta_f))) ...
@@ -216,44 +279,90 @@ disp(['Error: ', num2str(max(max(max(abs(out_comp - v1_initial)))))])
 v0 = v0.*ones(size(v0));
 v0 = reshape(out,size(v0));
 q = delta.*(1-kappa)./(alpha-i_k-j);
-eta = 0.1;
+% eta = 0.1;
+eta = 0.05;
+pde_error = 1;
+pde_error_old = 0;
 
-while (max(max(max(abs(out_comp - vold))))) > tol % check for convergence
+while (max(max(max(abs(pde_error - pde_error_old))))) > tol % check for convergence
    tic
    vold = v0 .* ones(size(v0));
 
-       v0_dt = zeros(size(v0));
-       v0_dt(:,2:end-1,:) = (1./(ht)).*(v0(:,3:end,:)-v0(:,2:end-1,:));
-       v0_dt(:,end,:) = (1./ht).*(v0(:,end,:)-v0(:,end-1,:));
-       v0_dt(:,1,:) = (1./ht).*(v0(:,2,:)-v0(:,1,:));
-
-       v0_dr = zeros(size(v0));
-       v0_dr(2:end-1,:,:) = (1./(hr)).*(v0(2:end-1,:,:)-v0(1:end-2,:,:));
-       v0_dr(end,:,:) = (1./hr).*(v0(end,:,:)-v0(end-1,:,:));
-       v0_dr(1,:,:) = (1./hr).*(v0(2,:,:)-v0(1,:,:));
-       v0_dr(v0_dr<1e-8) = 1e-8;
-
-       v0_dk = zeros(size(v0));
-       v0_dk(:,:,2:end-1) = (1./(hk)).*(v0(:,:,3:end)-v0(:,:,2:end-1));
-       v0_dk(:,:,end) = (1./hk).*(v0(:,:,end)-v0(:,:,end-1));
-       v0_dk(:,:,1) = (1./hk).*(v0(:,:,2)-v0(:,:,1));
-
-    v0_drr = zeros(size(v0));
-    v0_drr(2:end-1,:,:) = (1./(hr.^2)).*(v0(3:end,:,:)+v0(1:end-2,:,:)-2.*v0(2:end-1,:,:));
-    v0_drr(end,:,:) = (1./(hr.^2)).*(v0(end,:,:)+v0(end-2,:,:)-2.*v0(end-1,:,:));
-    v0_drr(1,:,:) = (1./(hr.^2)).*(v0(3,:,:)+v0(1,:,:)-2.*v0(2,:,:));
-
-    v0_dtt = zeros(size(v0));
-    v0_dtt(:,2:end-1,:) = (1./(ht.^2)).*(v0(:,3:end,:)+v0(:,1:end-2,:)-2.*v0(:,2:end-1,:));
-    v0_dtt(:,end,:) = (1./(ht.^2)).*(v0(:,end,:)+v0(:,end-2,:)-2.*v0(:,end-1,:));
-    v0_dtt(:,1,:) = (1./(ht.^2)).*(v0(:,3,:)+v0(:,1,:)-2.*v0(:,2,:));
-
-    v0_dkk = zeros(size(v0));
-    v0_dkk(:,:,2:end-1) = (1./(hk.^2)).*(v0(:,:,3:end)+v0(:,:,1:end-2)-2.*v0(:,:,2:end-1));
-    v0_dkk(:,:,end) = (1./(hk.^2)).*(v0(:,:,end)+v0(:,:,end-2)-2.*v0(:,:,end-1));
-    v0_dkk(:,:,1) = (1./(hk.^2)).*(v0(:,:,3)+v0(:,:,1)-2.*v0(:,:,2));
 
 
+    stateSpace = [r_mat(:), F_mat(:), k_mat(:)]; 
+    model      = {};
+    model.A    = A(:); 
+    model.B    = [B_r(:), B_t(:), B_k(:)];
+    model.C    = [C_rr(:), C_tt(:), C_kk(:)];
+    model.D    = D(:);
+    model.v0   = v0(:);
+    model.dt   = dt;
+    
+    out = solveCGNatural(stateSpace, model);
+    out_comp = reshape(out,size(v0)).*ones(size(r_mat));
+
+    iter = iter+1;
+    disp(['Diff: ', num2str(max(max(max(abs(out_comp - vold))))),' Number of Iters: ',num2str(iter)])
+
+    v0 = v0.*ones(size(v0));
+    v0 = reshape(out,size(v0));
+    
+    
+%     v0_dt = zeros(size(v0));
+%     v0_dt(:,2:end-1,:) = (1./(2.*ht)).*(v0(:,3:end,:)-v0(:,1:end-2,:));
+% %     v0_dt(:,2:end-1,:) = (1./(ht)).*((v0(:,3:end,:)-v0(:,2:end-1,:)) .* (B_t(:,2:end-1,:)>=0) ...
+% %                                 +(v0(:,2:end-1,:)-v0(:,1:end-2,:)) .* (B_t(:,2:end-1,:)<0));
+%     v0_dt(:,end,:) = (1./ht).*(v0(:,end,:)-v0(:,end-1,:));
+%     v0_dt(:,1,:) = (1./ht).*(v0(:,2,:)-v0(:,1,:));
+% 
+%     v0_dr = zeros(size(v0));
+%     v0_dr(2:end-1,:,:) = (1./(2.*hr)).*(v0(3:end,:,:)-v0(1:end-2,:,:));
+% %     v0_dr(2:end-1,:,:) = (1./(hr)).*((v0(3:end,:,:)-v0(2:end-1,:,:)) .* (B_r(2:end-1,:,:)>=0) ...
+% %                             +(v0(2:end-1,:,:)-v0(1:end-2,:,:)) .* (B_r(2:end-1,:,:)<0));
+%     v0_dr(end,:,:) = (1./hr).*(v0(end,:,:)-v0(end-1,:,:));
+%     v0_dr(1,:,:) = (1./hr).*(v0(2,:,:)-v0(1,:,:));
+% %     v0_dr(v0_dr<1e-8) = 1e-8;
+% 
+%     v0_dk = zeros(size(v0));
+%     v0_dk(:,:,2:end-1) = (1./(2.*hk)).*(v0(:,:,3:end)-v0(:,:,1:end-2));
+% %     v0_dk(:,:,2:end-1) = (1./(hk)).*((v0(:,:,3:end)-v0(:,:,2:end-1)) .* (B_k(:,:,2:end-1)>=0) ...
+% %                             +(v0(:,:,2:end-1)-v0(:,:,1:end-2)) .* (B_k(:,:,2:end-1)<0));
+%     v0_dk(:,:,end) = (1./hk).*(v0(:,:,end)-v0(:,:,end-1));
+%     v0_dk(:,:,1) = (1./hk).*(v0(:,:,2)-v0(:,:,1));
+% 
+%     v0_drr = zeros(size(v0));
+%     v0_drr(2:end-1,:,:) = (1./(hr.^2)).*(v0(3:end,:,:)+v0(1:end-2,:,:)-2.*v0(2:end-1,:,:));
+%     v0_drr(end,:,:) = (1./(hr.^2)).*(v0(end,:,:)+v0(end-2,:,:)-2.*v0(end-1,:,:));
+%     v0_drr(1,:,:) = (1./(hr.^2)).*(v0(3,:,:)+v0(1,:,:)-2.*v0(2,:,:));
+%     
+%     % Han: added to match Mike's version
+%     v0_drr(v0_dr<1e-16) = 0;
+%     v0_dr(v0_dr<1e-16) = 1e-16;
+%     
+%     v0_dtt = zeros(size(v0));
+%     v0_dtt(:,2:end-1,:) = (1./(ht.^2)).*(v0(:,3:end,:)+v0(:,1:end-2,:)-2.*v0(:,2:end-1,:));
+%     v0_dtt(:,end,:) = (1./(ht.^2)).*(v0(:,end,:)+v0(:,end-2,:)-2.*v0(:,end-1,:));
+%     v0_dtt(:,1,:) = (1./(ht.^2)).*(v0(:,3,:)+v0(:,1,:)-2.*v0(:,2,:));
+% 
+%     v0_dkk = zeros(size(v0));
+%     v0_dkk(:,:,2:end-1) = (1./(hk.^2)).*(v0(:,:,3:end)+v0(:,:,1:end-2)-2.*v0(:,:,2:end-1));
+%     v0_dkk(:,:,end) = (1./(hk.^2)).*(v0(:,:,end)+v0(:,:,end-2)-2.*v0(:,:,end-1));
+%     v0_dkk(:,:,1) = (1./(hk.^2)).*(v0(:,:,3)+v0(:,:,1)-2.*v0(:,:,2));
+%     
+% v0_dt = zeros(size(v0));
+% v0_dt(:,2:end-1,:) = (1./(2.*ht)).*(v0(:,3:end,:)-v0(:,1:end-2,:));
+% v0_dt(:,end,:) = (1./ht).*(v0(:,end,:)-v0(:,end-1,:));
+% v0_dt(:,1,:) = (1./ht).*(v0(:,2,:)-v0(:,1,:));
+    v0_dt = finiteDifference(v0,2,1,ht,'central');
+    v0_dr = finiteDifference(v0,1,1,hr,'central',1e-16);
+    v0_dk = finiteDifference(v0,3,1,hk,'central');
+    
+    v0_dtt = finiteDifference(v0,2,2,ht,'central');
+    v0_drr = finiteDifference(v0,1,2,hr,'central');
+    v0_drr(v0_dr<=1e-16)=0;
+    v0_dkk = finiteDifference(v0,3,2,hk,'central');
+    
     e_hat = e_star;
     
     q0 = q;
@@ -262,16 +371,27 @@ while (max(max(max(abs(out_comp - vold))))) > tol % check for convergence
 
     Converged = 0;
     nums = 0;
-    
+    while Converged == 0
+        istar = (phi_0.*phi_1.*v0_dk./q - 1)./phi_1;
+        jstar = (q.*exp(psi_1.*(r_mat-k_mat))./((v0_dr).*psi_0.*psi_1)).^(1./(psi_1 - 1));
+        if alpha > (istar+jstar)
+            qstar = eta.*delta.*(1-kappa)./(alpha-istar-jstar)+(1-eta).*q;
+        else
+            qstar = 2.*q;
+        end
         
-    j = ((delta.*(1-kappa).*phi_1.*alpha-j.*delta.*(1-kappa).*phi_1+delta.*(1-kappa)) ...
-       ./(exp(psi_1.*(r_mat-k_mat)).*(delta.*(1-kappa).*phi_1+phi_0.*phi_1.*v0_dk).*delta.*(1-kappa)./(v0_dr.*psi_1.*psi_0))) ...
-       .^(1./(1-psi_1));   
-    j = j.*(v0_dr>1e-8);
+        if (max(max(max(max(abs((qstar-q)./eta)))))<=1e-5)... && (max(max(max(max(abs(istar-i_k)))))<=1e-8)
+            Converged = 1; 
+        end
+        
+        q = qstar;
+        i_k = istar;
+        j = jstar;
+        
+        nums = nums+1;
+    end
+    disp(sprintf('Cobweb Passed, iteration: %d, i error: %f, j error: %f', nums, max(max(max(max(abs(istar-i_k))))),max(max(max(max(abs(jstar-j)))))));
 
-    i_k = (alpha-j-(delta.*(1-kappa))./(v0_dr.*psi_0.*psi_1).*j.^(1-psi_1).*exp(psi_1.*(r_mat-k_mat))).*(v0_dr>1e-8)...
-        + (v0_dr<=1e-8).*(v0_dk.*phi_0.*alpha - delta.*(1-kappa)./phi_1)./(delta.*(1-kappa)+v0_dk.*phi_0);
-    
     a_1 = zeros(size(r_mat));
     b_1 = xi_d.*e_hat.*exp(r_mat).*gamma_1;
     c_1 = 2.*xi_d.*e_hat.*exp(r_mat).*F_mat.*gamma_2;
@@ -341,25 +461,8 @@ while (max(max(max(abs(out_comp - vold))))) > tol % check for convergence
     D = delta.*kappa.*log(e_star)+delta.*kappa.*r_mat ...
         + delta.*(1-kappa).*(log(alpha-i_k-j)+(k_mat)) ...
         + drift_distort + RE_total;   
-
-    stateSpace = [r_mat(:), F_mat(:), k_mat(:)]; 
-    model      = {};
-    model.A    = A(:); 
-    model.B    = [B_r(:), B_t(:), B_k(:)];
-    model.C    = [C_rr(:), C_tt(:), C_kk(:)];
-    model.D    = D(:);
-    model.v0   = v0(:);
-    model.dt   = dt;
     
-    out = solveCGNatural(stateSpace, model);
-    out_comp = reshape(out,size(v0)).*ones(size(r_mat));
-
-    iter = iter+1;
-    disp(['Diff: ', num2str(max(max(max(abs(out_comp - vold))))),' Number of Iters: ',num2str(iter)])
-
-    v0 = v0.*ones(size(v0));
-    v0 = reshape(out,size(v0));
-
+    pde_error_old = pde_error;
     pde_error = A.*v0+B_r.*v0_dr+B_t.*v0_dt+B_k.*v0_dk+C_rr.*v0_drr+C_kk.*v0_dkk+C_tt.*v0_dtt+D;
     disp(['PDE Error: ', num2str(max(max(max(abs(pde_error)))))]) % check equation
 
@@ -373,6 +476,7 @@ end
 s0 = '/HJB_NonLinPref_Cumu';
 filename = [pwd, s0];
 save(filename); % save HJB solution
+stop;
 
 %% Step 3: simulation
 
@@ -389,7 +493,8 @@ efunc = griddedInterpolant(r_mat,F_mat,k_mat,e,'spline');
 if weight == 1
     jfunc = griddedInterpolant(r_mat,F_mat,k_mat,j,'spline');
 else
-    jfunc = griddedInterpolant(r_mat,F_mat,k_mat,j,'linear');
+%     jfunc = griddedInterpolant(r_mat,F_mat,k_mat,j,'linear');
+    j_psifunc = griddedInterpolant(r_mat,F_mat,k_mat,j.^psi_1,'linear');
 end
 i_kfunc = griddedInterpolant(r_mat,F_mat,k_mat,i_k,'spline');
 
@@ -402,7 +507,8 @@ pi_tilde_1func = griddedInterpolant(r_mat,F_mat,k_mat,pi_tilde_1_norm,'spline');
 pi_tilde_2func = griddedInterpolant(r_mat,F_mat,k_mat,1-pi_tilde_1_norm,'spline');
 
 e_func = @(x) efunc(log(x(:,1)),x(:,3),log(x(:,2)));
-j_func = @(x) max(jfunc(log(x(:,1)),x(:,3),log(x(:,2))),0);
+% j_func = @(x) max(jfunc(log(x(:,1)),x(:,3),log(x(:,2))),0);
+j_func = @(x) exp(log(max(j_psifunc(log(x(:,1)),x(:,3),log(x(:,2))),0))/psi_1);
 i_k_func = @(x) i_kfunc(log(x(:,1)),x(:,3),log(x(:,2)));
 
 v_dr_func = @(x) v_drfunc(log(x(:,1)),x(:,3),log(x(:,2)));
