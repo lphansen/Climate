@@ -362,7 +362,7 @@ void linearSysVars::constructMat(stateVars & state_vars) {
     Le.makeCompressed(); 
 }
 
-py::tuple solve(Eigen::Ref<MatrixXdR> preLoadMat, Eigen::Ref<MatrixXdR> A, Eigen::Ref<MatrixXdR> B, Eigen::Ref<MatrixXdR> C,  Eigen::Ref<MatrixXdR> D, Eigen::Ref<MatrixXdR> v0, double dt, std::string &solverType)
+py::tuple solve(Eigen::Ref<MatrixXdR> preLoadMat, Eigen::Ref<MatrixXdR> A, Eigen::Ref<MatrixXdR> B, Eigen::Ref<MatrixXdR> C,  Eigen::Ref<MatrixXdR> D, Eigen::Ref<MatrixXdR> v0, Eigen::Ref<MatrixXdR> v1, double dt, std::string &solverType)
 {
     assert( (solverType.compare("Feyman Kac") == 0) or (solverType.compare("False Transient") == 0));
 
@@ -372,9 +372,23 @@ py::tuple solve(Eigen::Ref<MatrixXdR> preLoadMat, Eigen::Ref<MatrixXdR> A, Eigen
     linearSysVars linearSys_vars(stateSpace, A,B,C,D,dt,solverType);
     linearSys_vars.constructMat(stateSpace);
 
-    Eigen::VectorXd v1; 
+    /* Initialize Eigen's cg solver */
+    Eigen::VectorXd XiEVector;
+    Eigen::LeastSquaresConjugateGradient<SpMat > cgE;
 
-    v1 = v0.array() + dt * D.array(); // transform v0 into rhs
+    if (solverType.compare("False Transient") == 0)  // Problem type is False Transient
+    {
+        Eigen::VectorXd v1; 
+        v1 = v0;                           // smart guess
+        cgE.setTolerance( 0.0000000001 );
+    }
+    else
+    {
+        cgE.setMaxIterations(200000);
+        cgE.setTolerance( 0.000001 );
+    }
+    v0 = v0.array() + dt * D.array();  // rhs
+    
     /*********************************************/
     /* Change RHS to reflect boundary conditions */
     /*********************************************/
@@ -394,11 +408,8 @@ py::tuple solve(Eigen::Ref<MatrixXdR> preLoadMat, Eigen::Ref<MatrixXdR> A, Eigen
     //     }
     // }
      
-    /* Initialize Eigen's cg solver */
-    Eigen::VectorXd XiEVector;
-    Eigen::LeastSquaresConjugateGradient<SpMat > cgE;
-    // cgE.setMaxIterations(10000);
-    cgE.setTolerance( 0.000000001 );
+    
+    
     cgE.compute(linearSys_vars.Le);
 
     XiEVector = cgE.solveWithGuess(v1,v0);
@@ -420,6 +431,6 @@ PYBIND11_MODULE(SolveLinSys,m){
 
     m.def("solve", &solve, py::arg("stateSpace"),
         py::arg("A"), py::arg("B"), py::arg("C"), py::arg("D"),
-        py::arg("v0"), py::arg("dt"), py::arg("solverType"));
+        py::arg("v0"), py::arg("v1"), py::arg("dt"), py::arg("solverType"));
 
 }
