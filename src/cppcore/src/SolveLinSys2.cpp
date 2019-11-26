@@ -354,26 +354,17 @@ void linearSysVars::constructMat(stateVars & state_vars) {
     Le.makeCompressed(); 
 }
 
-py::tuple solve(Eigen::Ref<MatrixXdR> preLoadMat, Eigen::Ref<MatrixXdR> A, Eigen::Ref<MatrixXdR> B, Eigen::Ref<MatrixXdR> C,  Eigen::Ref<MatrixXdR> D, Eigen::Ref<MatrixXdR> v0, Eigen::Ref<MatrixXdR> v1, double dt)
+py::tuple solve(Eigen::Ref<MatrixXdR> preLoadMat, Eigen::Ref<MatrixXdR> A, Eigen::Ref<MatrixXdR> B, Eigen::Ref<MatrixXdR> C,  Eigen::Ref<MatrixXdR> D, Eigen::Ref<MatrixXdR> v0)
 {
     py::tuple data(3);
-    // std::cout << "Mapping data to EIGEN:" << std::endl;
 
-    // tic();
     stateVars stateSpace(preLoadMat);
-    // toc();
-    // std::cout << "ConstructMat:" << std::endl;
-    // tic();
+    double dt(1.0);
     linearSysVars linearSys_vars(stateSpace, A,B,C,D,dt);
     linearSys_vars.constructMat(stateSpace);
 
-    // Eigen::VectorXd v1; 
-    // v1.resize(stateSpace.S, stateSpace.N);
-    // v1 = v0; // smart guess
-    
-    // printf("I'm Here");
-    v0 = v0.array() + dt * D.array(); // transform v0 into rhs
-    // printf("I'm Here");
+    Eigen::VectorXd rhs;
+    rhs =  dt * D.array(); // transform v0 into rhs
     /*********************************************/
     /* Change RHS to reflect boundary conditions */
     /*********************************************/
@@ -396,17 +387,10 @@ py::tuple solve(Eigen::Ref<MatrixXdR> preLoadMat, Eigen::Ref<MatrixXdR> A, Eigen
     /* Initialize Eigen's cg solver */
     Eigen::VectorXd XiEVector;
     Eigen::LeastSquaresConjugateGradient<SpMat > cgE;
-    cgE.setMaxIterations(200000);
-    cgE.setTolerance( 0.000000001 );
+    cgE.setMaxIterations(1);
+    cgE.setTolerance( 0.000001 );
     cgE.compute(linearSys_vars.Le);  // update with Sparse matrix A
-    // saveMarket(linearSys_vars.Le,"Le_local_dt.dat");
-    // std::cout << "Solve System:" << std::endl;
-    // tic();
-    XiEVector = cgE.solveWithGuess(v0,v1);
-    // toc();
-    // saveMarket(v0,"v0.dat");
-    // printf("CONJUGATE GRADIENT TOOK (number of iterationss): %3i% \n" ,  int(cgE.iterations()) );
-    // printf("CONJUGATE GRADIENT error: %3f% \n" , cgE.error() );
+    XiEVector = cgE.solveWithGuess(rhs,v0);  // (rhs, guess)
     data[0] = int(cgE.iterations());
     data[1] = cgE.error();
     data[2] = XiEVector;
@@ -421,10 +405,10 @@ py::tuple solve(Eigen::Ref<MatrixXdR> preLoadMat, Eigen::Ref<MatrixXdR> A, Eigen
 /*************************************/
 
 PYBIND11_MODULE(SolveLinSys2,m){
-    m.doc() = "PDE Solver in cpp";
+    m.doc() = "Feyman Kac Solver in cpp";
 
-    m.def("solve", &solvels, py::arg("stateSpace"),
+    m.def("solve", &solve, py::arg("stateSpace"),
         py::arg("A"), py::arg("B"), py::arg("C"), py::arg("D"),
-        py::arg("v0"), py::arg("v1"), py::arg("dt"));
+        py::arg("v0"));
 
 }

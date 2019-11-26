@@ -357,20 +357,15 @@ void linearSysVars::constructMat(stateVars & state_vars) {
 
 py::tuple solve(Eigen::Ref<MatrixXdR> preLoadMat, Eigen::Ref<MatrixXdR> A, Eigen::Ref<MatrixXdR> B, Eigen::Ref<MatrixXdR> C,  Eigen::Ref<MatrixXdR> D, Eigen::Ref<MatrixXdR> v0, double dt)
 {
-    // std::cout << "Mapping data to EIGEN:" << std::endl;
     py::tuple data(3);
-    // tic();
     stateVars stateSpace(preLoadMat);
-    // toc();
-    // std::cout << "ConstructMat:" << std::endl;
-    // tic();
+
     linearSysVars linearSys_vars(stateSpace, A,B,C,D,dt);
     linearSys_vars.constructMat(stateSpace);
-    // toc();
-    // printf("I'm Here");
+
     Eigen::VectorXd v1; 
-    v1.resize(stateSpace.S, stateSpace.N); v1 = v0;  // smart guess
-    v0 = v0.array() + dt * D.array(); // transform v0 into rhs
+
+    v1 = v0.array() + dt * D.array(); // transform v0 into rhs
     /*********************************************/
     /* Change RHS to reflect boundary conditions */
     /*********************************************/
@@ -391,24 +386,18 @@ py::tuple solve(Eigen::Ref<MatrixXdR> preLoadMat, Eigen::Ref<MatrixXdR> A, Eigen
     // }
      
     /* Initialize Eigen's cg solver */
+ 
     Eigen::VectorXd XiEVector;
     Eigen::LeastSquaresConjugateGradient<SpMat > cgE;
     // cgE.setMaxIterations(10000);
     cgE.setTolerance( 0.0000000001 );
     cgE.compute(linearSys_vars.Le);
-    // std::cout << linearSys_vars.Le.determinant() << std::endl;
-    // saveMarket(linearSys_vars.Le,"Le_local_dt.dat");
-    // std::cout << "Solve System:" << std::endl;
-    // tic();
-    XiEVector = cgE.solveWithGuess(v0,v1);
-    // toc();
-    // saveMarket(v0,"v0.dat");
-    // printf("CONJUGATE GRADIENT TOOK (number of iterationss): %3i% \n" ,  int(cgE.iterations()) );
-    // printf("CONJUGATE GRADIENT error: %3f% \n" , cgE.error() );
+    std::cout << "Here3:" << std::endl;
+
+    XiEVector = cgE.solveWithGuess(v1, v0);
     data[0] = int(cgE.iterations());
     data[1] = cgE.error();
     data[2] = XiEVector;
-    // data[3] = linearSys_vars.Le;
     return data;    
 
 }
@@ -421,7 +410,7 @@ py::tuple solve(Eigen::Ref<MatrixXdR> preLoadMat, Eigen::Ref<MatrixXdR> A, Eigen
 PYBIND11_MODULE(SolveLinSys1,m){
     m.doc() = "PDE False Transient Solver in cpp";
 
-    m.def("solve", &solvels, py::arg("stateSpace"),
+    m.def("solve", &solve, py::arg("stateSpace"),
         py::arg("A"), py::arg("B"), py::arg("C"), py::arg("D"),
         py::arg("v0"), py::arg("dt"));
 
