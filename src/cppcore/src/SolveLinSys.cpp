@@ -195,56 +195,44 @@ public:
     //member functions
     
     //constructor
-    linearSysVars(stateVars & state_vars, Eigen::MatrixXd A, Eigen::MatrixXd B, Eigen::MatrixXd C, Eigen::MatrixXd D, double dt, std::string typeInput);
+    linearSysVars(stateVars & state_vars, Eigen::MatrixXd A, Eigen::MatrixXd B, Eigen::MatrixXd C, Eigen::MatrixXd D, double dt);
     
     //function to construt matrix
     
-    void constructMat(stateVars & state_vars);
-    
+    void constructMatFT(stateVars & state_vars);
+    void constructMatFK(stateVars & state_vars);
+
 };
 
-linearSysVars::linearSysVars(stateVars & state_vars, Eigen::MatrixXd AInput, Eigen::MatrixXd BInput, Eigen::MatrixXd CInput, Eigen::MatrixXd DInput, double dtInput, std::string typeInput) {
+linearSysVars::linearSysVars(stateVars & state_vars, Eigen::MatrixXd AInput, Eigen::MatrixXd BInput, Eigen::MatrixXd CInput, Eigen::MatrixXd DInput, double dtInput) {
         
     Le.resize(state_vars.S,state_vars.S);
     A.resize(state_vars.S,1); B.resize(state_vars.S,state_vars.N);
     C.resize(state_vars.S,state_vars.N); D.resize(state_vars.S,1);
     A = AInput; B = BInput; C = CInput; D = DInput;
     dt = dtInput;
-    solverType = typeInput;
 
 }
 
 
 
-void linearSysVars::constructMat(stateVars & state_vars) {
+void linearSysVars::constructMatFT(stateVars & state_vars) {
     matList.clear();
     matList.reserve(10 * state_vars.S);
     atBoundIndicators.resize(state_vars.N);
     double atBound = -1;
     double upperBound = -1;
-    double Coef;
     //construct matrix
 
-    if (solverType.compare("Feyman Kac") == 0)  // Problem type is Feyman Kac
-    {
-        Coef = 0.0;
-    }
-    else
-    {
-        Coef = 1.0;
-    }
-    
-    
-    
     for (int i = 0; i < state_vars.S; ++i) {
         //level and time deriv
         
         atBound = -1;
         //check boundaries
         
-        matList.push_back(T(i,i, (Coef - dt * A(i,0))  ));
+        matList.push_back(T(i,i, (1.0 - dt * A(i,0))  ));
         
-        for (int n = (state_vars.N - 1); n >=0; --n ) {
+        for (int n  = (state_vars.N - 1); n >=0; --n ) {
             
             atBoundIndicators(n) = -1.0;
             
@@ -264,8 +252,8 @@ void linearSysVars::constructMat(stateVars & state_vars) {
                  matList.push_back(T(i, i - state_vars.increVec(n), - dt * ( - firstCoefE/state_vars.dVec(n) - 2 * secondCoefE / pow(state_vars.dVec(n), 2) ) ));
                  matList.push_back(T(i, i - 2*state_vars.increVec(n), - dt * ( secondCoefE / pow(state_vars.dVec(n), 2) ) ) );
                 
-                /* Uncomment this section if you want first derivatives = constant  */
-//                 matList.push_back(T(i,i, - (1.0 - dt * A(i,0) ) ));
+                /* Uncomment this section if you want first derivatives = constant  
+                 matList.push_back(T(i,i, - (1.0 - dt * A(i,0) ) ));
                 /*
                  matList.push_back(T(i, i, - dt * ( 1.0/state_vars.dVec(n)  ) ) );
                  matList.push_back(T(i, i - state_vars.increVec(n), - dt * ( - 1.0/state_vars.dVec(n)  ) ));*/
@@ -300,7 +288,7 @@ void linearSysVars::constructMat(stateVars & state_vars) {
                 //*/
                 /* Uncomment this section if you want first derivatives = constant
                  */
-//                 matList.push_back(T(i,i, - (1.0 - dt * A(i,0) ) ));
+                // matList.push_back(T(i,i, - (1.0 - dt * A(i,0) ) ));
                 // matList.push_back(T(i, i, - dt * ( - 1/state_vars.dVec(n)  ) ) );
                 // matList.push_back(T(i, i + state_vars.increVec(n), - dt * ( 1/state_vars.dVec(n) ) ));
                  /*
@@ -319,8 +307,7 @@ void linearSysVars::constructMat(stateVars & state_vars) {
                     matList.push_back(T(i, i, - dt * ( 1.0 / pow(state_vars.dVec(n), 2) ) ) );
                     matList.push_back(T(i, i + state_vars.increVec(n), - dt * (  - 2 * 1.0 / pow(state_vars.dVec(n), 2) ) ));
                     matList.push_back(T(i, i + 2*state_vars.increVec(n), - dt * ( 1.0 / pow(state_vars.dVec(n), 2) ) ) );
-                
-*/
+                */
                 
             }
 
@@ -362,33 +349,150 @@ void linearSysVars::constructMat(stateVars & state_vars) {
     Le.makeCompressed(); 
 }
 
-py::tuple solve(Eigen::Ref<MatrixXdR> preLoadMat, Eigen::Ref<MatrixXdR> A, Eigen::Ref<MatrixXdR> B, Eigen::Ref<MatrixXdR> C,  Eigen::Ref<MatrixXdR> D, Eigen::Ref<MatrixXdR> v0, Eigen::Ref<MatrixXdR> v1, double dt, std::string &solverType)
-{
-    assert( (solverType.compare("Feyman Kac") == 0) or (solverType.compare("False Transient") == 0));
+void linearSysVars::constructMatFK(stateVars & state_vars) {
+    matList.clear();
+    matList.reserve(10 * state_vars.S);
+    atBoundIndicators.resize(state_vars.N);
+    double atBound = -1;
+    double upperBound = -1;
+    //construct matrix
 
+    for (int i = 0; i < state_vars.S; ++i) {
+        //level and time deriv
+        
+        atBound = -1;
+        //check boundaries
+        
+        matList.push_back(T(i,i, (0.0 - dt * A(i,0))  ));
+        
+        for (int n  = (state_vars.N - 1); n >=0; --n ) {
+            
+            atBoundIndicators(n) = -1.0;
+            
+            double firstCoefE = B(i,n);
+            
+            double secondCoefE = C(i,n);
+            
+            //check whether it's at upper or lower boundary
+            if ( std::abs(state_vars.stateMat(i,n) - state_vars.upperLims(n)) < state_vars.dVec(n)/2.0 ) {  //upper boundary
+                atBoundIndicators(n) = 1.0;
+        
+                atBound = 1.0;
+                upperBound = 1.0;
+                /* Uncomment this section if you want natural boundaries */
+                
+                 matList.push_back(T(i, i, - dt * ( firstCoefE/state_vars.dVec(n) + secondCoefE / pow(state_vars.dVec(n), 2) ) ) );
+                 matList.push_back(T(i, i - state_vars.increVec(n), - dt * ( - firstCoefE/state_vars.dVec(n) - 2 * secondCoefE / pow(state_vars.dVec(n), 2) ) ));
+                 matList.push_back(T(i, i - 2*state_vars.increVec(n), - dt * ( secondCoefE / pow(state_vars.dVec(n), 2) ) ) );
+                
+                /* Uncomment this section if you want first derivatives = constant  
+                 matList.push_back(T(i,i, - (1.0 - dt * A(i,0) ) ));
+                /*
+                 matList.push_back(T(i, i, - dt * ( 1.0/state_vars.dVec(n)  ) ) );
+                 matList.push_back(T(i, i - state_vars.increVec(n), - dt * ( - 1.0/state_vars.dVec(n)  ) ));*/
+                 /*
+                if ((n == 0) && atBoundIndicators(1) > 0 ) {
+                 matList.push_back(T(i, i,  dt * ( firstCoefE/state_vars.dVec(n)  ) ) );
+                 matList.push_back(T(i, i - state_vars.increVec(n),  dt * ( - firstCoefE/state_vars.dVec(n)  ) ));
+                }*/
+                /* Uncomment this section if you want second derivatives = constant  */
+                //matList.push_back(T(i,i, - (1.0 - dt * A(i,0) )  ));   
+                /*
+                matList.push_back(T(i, i, - dt * (  secondCoefE / pow(state_vars.dVec(n), 2) ) ) );
+                matList.push_back(T(i, i - state_vars.increVec(n), - dt * ( - 2 * secondCoefE / pow(state_vars.dVec(n), 2) ) ));
+                matList.push_back(T(i, i - 2*state_vars.increVec(n), - dt * ( secondCoefE / pow(state_vars.dVec(n), 2) ) ) );
+                */
+                /*
+                matList.push_back(T(i, i, - dt * (  1.0 / pow(state_vars.dVec(n), 2) ) ) );
+                matList.push_back(T(i, i - state_vars.increVec(n), - dt * ( - 2 *  1.0 / pow(state_vars.dVec(n), 2) ) ));
+                matList.push_back(T(i, i - 2*state_vars.increVec(n), - dt * ( 1.0 / pow(state_vars.dVec(n), 2) ) ) );
+                */
+            } else if ( std::abs(state_vars.stateMat(i,n) - state_vars.lowerLims(n)) < state_vars.dVec(n)/2.0 ) { //lower boundary
+                
+                atBoundIndicators(n) = 1.0;
+                atBound = 1.0;
+
+                ///* Uncomment this section if you want natural boundaries
+                
+                 matList.push_back(T(i, i, - dt * ( - firstCoefE/state_vars.dVec(n) + secondCoefE / pow(state_vars.dVec(n), 2) ) ) );
+                 matList.push_back(T(i, i + state_vars.increVec(n), - dt * ( firstCoefE/state_vars.dVec(n) - 2 * secondCoefE / pow(state_vars.dVec(n), 2) ) ));
+                 matList.push_back(T(i, i + 2*state_vars.increVec(n), - dt * ( secondCoefE / pow(state_vars.dVec(n), 2) ) ) );
+                
+                //*/
+                /* Uncomment this section if you want first derivatives = constant
+                 */
+                // matList.push_back(T(i,i, - (1.0 - dt * A(i,0) ) ));
+                // matList.push_back(T(i, i, - dt * ( - 1/state_vars.dVec(n)  ) ) );
+                // matList.push_back(T(i, i + state_vars.increVec(n), - dt * ( 1/state_vars.dVec(n) ) ));
+                 /*
+                if ((n == 0) && atBoundIndicators(1) > 0 ) {
+                 matList.push_back(T(i, i,  dt * ( - firstCoefE/state_vars.dVec(n)  ) ) );
+                 matList.push_back(T(i, i + state_vars.increVec(n),  dt * ( firstCoefE/state_vars.dVec(n) ) ));
+                }*/
+                /* Uncomment this section if you want second derivatives = constant  */
+                //matList.push_back(T(i,i, - (1.0 - dt * A(i,0) )/ state_vars.N ));
+                /*
+                matList.push_back(T(i, i, - dt * ( secondCoefE / pow(state_vars.dVec(n), 2) ) ) );
+                matList.push_back(T(i, i + state_vars.increVec(n), - dt * (  - 2 * secondCoefE / pow(state_vars.dVec(n), 2) ) ));
+                matList.push_back(T(i, i + 2*state_vars.increVec(n), - dt * ( secondCoefE / pow(state_vars.dVec(n), 2) ) ) );
+                */
+                /*
+                    matList.push_back(T(i, i, - dt * ( 1.0 / pow(state_vars.dVec(n), 2) ) ) );
+                    matList.push_back(T(i, i + state_vars.increVec(n), - dt * (  - 2 * 1.0 / pow(state_vars.dVec(n), 2) ) ));
+                    matList.push_back(T(i, i + 2*state_vars.increVec(n), - dt * ( 1.0 / pow(state_vars.dVec(n), 2) ) ) );
+                */
+                
+            }
+
+
+
+        }
+        
+             
+        if (atBound < 0 ) {
+          // matList.push_back(T(i,i, (1.0 - dt * A(i,0))  ));
+        }
+        for (int n = (state_vars.N - 1); n >= 0; --n) {
+            
+            //add elements to the vector of triplets for matrix construction
+            if ( atBoundIndicators(n) < 0) {
+                double firstCoefE = B(i,n);
+                double secondCoefE = C(i,n);
+                
+                //first derivative
+                 matList.push_back(T(i,i, - dt * ( -firstCoefE * ( firstCoefE > 0) + firstCoefE * ( firstCoefE < 0) ) / state_vars.dVec(n)  ) );
+                 matList.push_back(T(i,i + state_vars.increVec(n), - dt * firstCoefE * ( firstCoefE > 0) / state_vars.dVec(n) ));
+                 matList.push_back(T(i,i - state_vars.increVec(n), - dt *  - firstCoefE * ( firstCoefE < 0) / state_vars.dVec(n) ));
+                
+                    matList.push_back(T(i, i, - dt * -2 * secondCoefE / ( pow(state_vars.dVec(n), 2) ) ));
+                    matList.push_back(T(i, i + state_vars.increVec(n), - dt * secondCoefE / ( pow(state_vars.dVec(n), 2) ) ));
+                    matList.push_back(T(i, i - state_vars.increVec(n), - dt * secondCoefE / ( pow(state_vars.dVec(n), 2) ) ));
+                
+            }
+
+        }
+
+
+    }
+    //form matrices
+
+    Le.setFromTriplets(matList.begin(), matList.end());
+
+    //compress
+    Le.makeCompressed(); 
+}
+
+py::tuple solveFT(Eigen::Ref<MatrixXdR> preLoadMat, Eigen::Ref<MatrixXdR> A, Eigen::Ref<MatrixXdR> B, Eigen::Ref<MatrixXdR> C,  Eigen::Ref<MatrixXdR> D, Eigen::Ref<MatrixXdR> v0, double dt)
+{
     py::tuple data(3);
     stateVars stateSpace(preLoadMat);
 
-    linearSysVars linearSys_vars(stateSpace, A,B,C,D,dt,solverType);
-    linearSys_vars.constructMat(stateSpace);
+    linearSysVars linearSys_vars(stateSpace, A,B,C,D,dt);
+    linearSys_vars.constructMatFT(stateSpace);
 
-    /* Initialize Eigen's cg solver */
-    Eigen::VectorXd XiEVector;
-    Eigen::LeastSquaresConjugateGradient<SpMat > cgE;
+    Eigen::VectorXd rhs; 
 
-    if (solverType.compare("False Transient") == 0)  // Problem type is False Transient
-    {
-        Eigen::VectorXd v1; 
-        v1 = v0;                           // smart guess
-        cgE.setTolerance( 0.0000000001 );
-    }
-    else
-    {
-        cgE.setMaxIterations(200000);
-        cgE.setTolerance( 0.000001 );
-    }
-    v0 = v0.array() + dt * D.array();  // rhs
-    
+    rhs = v0.array() + dt * D.array(); // transform v0 into rhs
     /*********************************************/
     /* Change RHS to reflect boundary conditions */
     /*********************************************/
@@ -408,12 +512,15 @@ py::tuple solve(Eigen::Ref<MatrixXdR> preLoadMat, Eigen::Ref<MatrixXdR> A, Eigen
     //     }
     // }
      
-    
-    
+    /* Initialize Eigen's cg solver */
+ 
+    Eigen::VectorXd XiEVector;
+    Eigen::LeastSquaresConjugateGradient<SpMat > cgE;
+    // cgE.setMaxIterations(10000);
+    cgE.setTolerance( 0.0000000001 );
     cgE.compute(linearSys_vars.Le);
 
-    XiEVector = cgE.solveWithGuess(v1,v0);
-
+    XiEVector = cgE.solveWithGuess(rhs, v0);
     data[0] = int(cgE.iterations());
     data[1] = cgE.error();
     data[2] = XiEVector;
@@ -421,6 +528,49 @@ py::tuple solve(Eigen::Ref<MatrixXdR> preLoadMat, Eigen::Ref<MatrixXdR> A, Eigen
 
 }
 
+py::tuple solveFK(Eigen::Ref<MatrixXdR> preLoadMat, Eigen::Ref<MatrixXdR> A, Eigen::Ref<MatrixXdR> B, Eigen::Ref<MatrixXdR> C,  Eigen::Ref<MatrixXdR> D, Eigen::Ref<MatrixXdR> v0)
+{
+    py::tuple data(3);
+    stateVars stateSpace(preLoadMat);
+    double dt(1.0);
+    linearSysVars linearSys_vars(stateSpace, A,B,C,D,dt);
+    linearSys_vars.constructMatFK(stateSpace);
+
+    Eigen::VectorXd rhs;
+    rhs =  dt * D.array(); // transform v0 into rhs
+    /*********************************************/
+    /* Change RHS to reflect boundary conditions */
+    /*********************************************/
+
+    //construct matrix
+    /* uncomment this section if you want to set the boundary conditions to a constant */
+    for (int i = 0; i < stateSpace.S; ++i) {
+
+        for (int n = (stateSpace.N - 1); n >=0; --n ) {
+            
+            //check whether it's at upper or lower boundary
+            if ( std::abs(stateSpace.stateMat(i,n) - stateSpace.upperLims(n)) < stateSpace.dVec(n)/2 ) {  //upper boundary
+             //   v0(i) = 0.0001;
+            } else if ( std::abs( stateSpace.stateMat(i,n) - stateSpace.lowerLims(n)) < stateSpace.dVec(n)/2 ) { //lower boundary
+             //v0(i) = 0.0001;            
+            }
+        }
+    }
+     
+    /* Initialize Eigen's cg solver */
+    Eigen::VectorXd XiEVector;
+    Eigen::LeastSquaresConjugateGradient<SpMat > cgE;
+    cgE.setMaxIterations(1);
+    cgE.setTolerance( 0.000001 );
+    cgE.compute(linearSys_vars.Le);  // update with Sparse matrix A
+    XiEVector = cgE.solveWithGuess(rhs,v0);  // (rhs, guess)
+    data[0] = int(cgE.iterations());
+    data[1] = cgE.error();
+    data[2] = XiEVector;
+
+    return data;    
+
+}
 /*************************************/
 /* Using pybind11 to interface       */
 /* with python                       */
@@ -429,8 +579,12 @@ py::tuple solve(Eigen::Ref<MatrixXdR> preLoadMat, Eigen::Ref<MatrixXdR> A, Eigen
 PYBIND11_MODULE(SolveLinSys,m){
     m.doc() = "PDE Solver in cpp";
 
-    m.def("solve", &solve, py::arg("stateSpace"),
+    m.def("solveFT", &solveFT, py::arg("stateSpace"),
         py::arg("A"), py::arg("B"), py::arg("C"), py::arg("D"),
-        py::arg("v0"), py::arg("v1"), py::arg("dt"), py::arg("solverType"));
+        py::arg("v0"), py::arg("dt"));
+
+    m.def("solveFK", &solveFK, py::arg("stateSpace"),
+        py::arg("A"), py::arg("B"), py::arg("C"), py::arg("D"),
+        py::arg("v0"));
 
 }

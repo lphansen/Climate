@@ -2,10 +2,10 @@ import numpy as np
 import pandas as pd
 from scipy.io import loadmat
 from scipy.stats import norm
-import pdb
-import warnings
-import SolveLinSys1
-import SolveLinSys2
+# import pdb
+# import warnings
+# import SolveLinSys1
+# import SolveLinSys2
 import time
 import sys
 from scipy.interpolate import CubicSpline
@@ -26,14 +26,18 @@ from plotly.subplots import make_subplots
 from plotly.offline import init_notebook_mode, iplot
 from scipy.interpolate import CubicSpline
 from copy import deepcopy
+# import SolveLinSys1
+# import SolveLinSys2
+import SolveLinSys
 
-
-sys.stdout.flush()
-print(os.getcwd())
 # to-dos:
 # 1. Incorporate competitive settings
 # 2. Plots for growth models?
 # 3. combine growth codes
+
+sys.stdout.flush()
+print(os.getcwd())
+
 
 # Parameters for the model in preference setting
 preferenceParams = OrderedDict({})
@@ -60,7 +64,7 @@ preferenceParams['ρ12'] = 0
 preferenceParams['F̄'] = 2
 preferenceParams['crit'] = 2
 preferenceParams['F0'] = 1
-preferenceParams['ξₚ'] = 1 / 0.001   # 4500, 0.01
+preferenceParams['ξₚ'] = 1 / 4000   # 4000, 0.01
 McD = np.loadtxt('./data/TCRE_MacDougallEtAl2017_update.txt')
 preferenceParams['βMcD'] = McD / 1000.0
 
@@ -89,23 +93,24 @@ growthParams['βMcD'] = McD / 1000.0
 
 # Specification for Model's solver in preference setting
 preferenceSpecs = OrderedDict({})
-preferenceSpecs['tol'] = 1e-10
-preferenceSpecs['ε'] = 0.5
+preferenceSpecs['tol'] = 1e-8
+preferenceSpecs['ε'] = 0.1
+preferenceSpecs['η'] = 0.05
 preferenceSpecs['R_min'] = 0
 preferenceSpecs['R_max'] = 9
-preferenceSpecs['nR'] = 30
+preferenceSpecs['nR'] = 181
 preferenceSpecs['F_min'] = 0
 preferenceSpecs['F_max'] = 4000
-preferenceSpecs['nF'] = 40
+preferenceSpecs['nF'] = 161
 preferenceSpecs['K_min'] = 0
-preferenceSpecs['K_max'] = 9
-preferenceSpecs['nK'] = 25
+preferenceSpecs['K_max'] = 18
+preferenceSpecs['nK'] = 121
 preferenceSpecs['quadrature'] = 'legendre'
 preferenceSpecs['n'] = 30
 
 # Specification for Model's solver in growth setting
 growthSpecs = OrderedDict({})
-growthSpecs['tol'] = 1e-16
+growthSpecs['tol'] = 1e-8
 growthSpecs['ε'] = 0.5
 growthSpecs['R_min'] = 0
 growthSpecs['R_max'] = 9
@@ -122,7 +127,7 @@ compSpecs['R_max'] = 12
 compSpecs['F_max'] = 4000
 compSpecs['K_max'] = 12
 compSpecs['nF'] = 40
-compSpecs['tol'] = 1e-16
+compSpecs['tol'] = 1e-8
 
 class GridInterp():
 
@@ -194,12 +199,14 @@ class modelSolutions():
         if os.path.isfile('./data/HighAverse.pickle'):
             self.models['HighAverse'] = pickle.load(open("./data/HighAverse.pickle", "rb", -1))
         else:
-            self.prefParams['ξₚ'] = 1 / 4500
-            self.models['HighAverse'] = preferenceModel(self.prefParams, self.prefSpecs)
-            self.models['HighAverse'].solveHJB('High')
-            self.models['HighAverse'].Simulate(self.method)
-            self.models['HighAverse'].SCCDecompose(AmbiguityNeutral = False, method = self.method)
-            self.models['HighAverse'].computeProbs(damageSpec = 'High', method = self.method)
+            self.prefParams['ξₚ'] = 1 / 4000
+            key = 'HighAverse'
+            print('-------' + key + '-------')
+            self.models[key] = preferenceModel(self.prefParams, self.prefSpecs)
+            self.models[key].solveHJB('High', initial_guess = key)
+            self.models[key].Simulate(self.method)
+            self.models[key].SCCDecompose(AmbiguityNeutral = False, method = self.method, initial_guess = key)
+            self.models[key].computeProbs(damageSpec = 'High', method = self.method)
 
             with open('./data/HighAverse.pickle', "wb") as file_:
                 pickle.dump(self.models['HighAverse'], file_, -1)
@@ -208,21 +215,27 @@ class modelSolutions():
             self.models['HighNeutral'] = pickle.load(open("./data/HighNeutral.pickle", "rb", -1))
         else:
             self.prefParams['ξₚ'] = 1 / 0.001
-            self.models['HighNeutral'] = preferenceModel(self.prefParams, self.prefSpecs)
-            self.models['HighNeutral'].solveHJB('High')
-            self.models['HighNeutral'].Simulate(self.method)
-            self.models['HighNeutral'].SCCDecompose(AmbiguityNeutral = True, method = self.method)
+            key = 'HighNeutral'
+            print('-------' + key + '-------')
+            self.models[key] = preferenceModel(self.prefParams, self.prefSpecs)
+            self.models[key].solveHJB('High', initial_guess = key)
+            self.models[key].Simulate(self.method)
+            self.models[key].SCCDecompose(AmbiguityNeutral = True, method = self.method, initial_guess = key)
             with open('./data/HighNeutral.pickle', "wb") as file_:
                 pickle.dump(self.models['HighNeutral'], file_, -1)
 
         if os.path.isfile('./data/LowAverse.pickle'):
             self.models['LowAverse'] = pickle.load(open("./data/LowAverse.pickle", "rb", -1))
         else:
-            self.prefParams['ξₚ'] = 1 / 4500
-            self.models['LowAverse'] = preferenceModel(self.prefParams, self.prefSpecs)
-            self.models['LowAverse'].solveHJB('Low')
-            self.models['LowAverse'].Simulate(self.method)
-            self.models['LowAverse'].SCCDecompose(AmbiguityNeutral = False, method = self.method)
+            self.prefParams['ξₚ'] = 1 / 4000
+            preferenceSpecs['ε'] = 0.05
+            key = 'LowAverse'
+            print('-------' + key + '-------')
+            self.models[key] = preferenceModel(self.prefParams, self.prefSpecs)
+            self.models[key].solveHJB('Low', initial_guess = key)
+            self.models[key].Simulate(self.method)
+            self.models[key].SCCDecompose(AmbiguityNeutral = False, method = self.method, initial_guess = key)
+            self.models[key].computeProbs(damageSpec = 'Low', method = self.method)
 
             with open('./data/LowAverse.pickle', "wb") as file_:
                 pickle.dump(self.models['LowAverse'], file_, -1)
@@ -230,11 +243,14 @@ class modelSolutions():
         if os.path.isfile('./data/LowNeutral.pickle'):
             self.models['LowNeutral'] = pickle.load(open("./data/LowNeutral.pickle", "rb", -1))
         else:
+            preferenceSpecs['ε'] = 0.01
             self.prefParams['ξₚ'] = 1 / 0.001
-            self.models['LowNeutral'] = preferenceModel(self.prefParams, self.prefSpecs)
-            self.models['LowNeutral'].solveHJB('Low')
-            self.models['LowNeutral'].Simulate(self.method)
-            self.models['LowNeutral'].SCCDecompose(AmbiguityNeutral = True, method = self.method)
+            key = 'LowNeutral'
+            print('-------' + key + '-------')
+            self.models[key] = preferenceModel(self.prefParams, self.prefSpecs)
+            self.models[key].solveHJB('Low', initial_guess = key)
+            self.models[key].Simulate(self.method)
+            self.models[key].SCCDecompose(AmbiguityNeutral = True, method = self.method, initial_guess = key)
 
             with open('./data/LowNeutral.pickle', "wb") as file_:
                 pickle.dump(self.models['LowNeutral'], file_, -1)
@@ -242,12 +258,15 @@ class modelSolutions():
         if os.path.isfile('./data/WeightedAverse.pickle'):
             self.models['WeightedAverse'] = pickle.load(open("./data/WeightedAverse.pickle", "rb", -1))
         else:
-            self.prefParams['ξₚ'] = 1 / 4500
-            self.models['WeightedAverse'] = preferenceModel(self.prefParams, self.prefSpecs)
-            self.models['WeightedAverse'].solveHJB('Weighted')
-            self.models['WeightedAverse'].Simulate(self.method)
-            self.models['WeightedAverse'].SCCDecompose(AmbiguityNeutral = False, method = self.method)
-            self.models['WeightedAverse'].computeProbs(damageSpec = 'Weighted', method = self.method)
+            self.prefParams['ξₚ'] = 1 / 4000
+            preferenceSpecs['ε'] = 0.1
+            key = 'WeightedAverse'
+            print('-------' + key + '-------')
+            self.models[key] = preferenceModel(self.prefParams, self.prefSpecs)
+            self.models[key].solveHJB('Weighted', initial_guess = key)
+            self.models[key].Simulate(self.method)
+            self.models[key].SCCDecompose(AmbiguityNeutral = False, method = self.method, initial_guess = key)
+            self.models[key].computeProbs(damageSpec = 'Weighted', method = self.method)
             with open('./data/WeightedAverse.pickle', "wb") as file_:
                 pickle.dump(self.models['WeightedAverse'], file_, -1)
 
@@ -255,10 +274,12 @@ class modelSolutions():
             self.models['WeightedNeutral'] = pickle.load(open("./data/WeightedNeutral.pickle", "rb", -1))
         else:
             self.prefParams['ξₚ'] = 1 / 0.001
-            self.models['WeightedNeutral'] = preferenceModel(self.prefParams, self.prefSpecs)
-            self.models['WeightedNeutral'].solveHJB('Weighted')
-            self.models['WeightedNeutral'].Simulate(self.method)
-            self.models['WeightedNeutral'].SCCDecompose(AmbiguityNeutral = False, method = self.method)
+            key = 'WeightedNeutral'
+            print('-------' + key + '-------')
+            self.models[key] = preferenceModel(self.prefParams, self.prefSpecs)
+            self.models[key].solveHJB('Weighted', initial_guess = key)
+            self.models[key].Simulate(self.method)
+            self.models[key].SCCDecompose(AmbiguityNeutral = False, method = self.method, initial_guess = key)
             with open('./data/WeightedNeutral.pickle', "wb") as file_:
                 pickle.dump(self.models['WeightedNeutral'], file_, -1)
 
@@ -363,13 +384,13 @@ class modelSolutions():
             with open('./data/GrowthNeutral.pickle', "wb") as file_:
                 pickle.dump(self.growthmodels['GrowthNeutral'], file_, -1)
 
-    def solvexiModels(self, xiList = [ 1 / 4500, 0.0003, 0.0004, 0.0006, 0.001, 0.002, 0.005, 0.1, 1, 100, 1000], key = 'Weighted'):
+    def solvexiModels(self, xiList = [ 1 / 4000, 0.0003, 0.0004, 0.0006, 0.001, 0.002, 0.005, 0.1, 1, 100, 1000], key = 'Weighted'):
         if os.path.isfile('./data/ximodels.pickle'):
             self.xiModels = pickle.load(open("./data/ximodels.pickle", "rb", -1))
             for ξ in xiList:
                 if ξ == 1 / 0.001:
                     self.xiModels[ξ] = self.models['WeightedNeutral']
-                elif ξ == 1 / 4500:
+                elif ξ == 1 / 4000:
                     self.xiModels[ξ] = self.models['WeightedAverse']
                 elif ξ in self.xiModels.keys():
                     pass
@@ -385,11 +406,16 @@ class modelSolutions():
 
                     self.xiModels[ξ] = self.models['WeightedNeutral']
 
-                elif ξ == 1 / 4500:
+                elif ξ == 1 / 4000:
 
                     self.xiModels[ξ] = self.models['WeightedAverse']
 
                 else:
+                    xiList_m = np.array(xiList)
+                    averse_list = sorted(xiList_m[xiList_m < 1])
+                    neutral_list = sorted(xiList_m[xiList_m >= 1], reverse = True)
+
+                    
                     self.prefParams['ξₚ'] = ξ
                     self.xiModels[ξ] = preferenceModel(self.prefParams, self.prefSpecs)
                     self.xiModels[ξ].solveHJB(key)
@@ -473,6 +499,74 @@ class modelSolutions():
                             columns = ['Shifted Mean', 'Shifted Std'],
                             index = [0, 25, 50, 75, 100])
         self.vals = vals
+
+    def densityIntPlot(self):
+        fig = go.Figure()
+        years = np.arange(0,101,1)
+        dom = self.models[key + 'Averse'].beta_f_space
+        inds = ((dom>=0) & (dom<=5e-3))
+        for y in years:
+            data = self.models['WeightedAverse'].Dists
+            if y == 0：
+                fig.add_scatter(x = dom[inds] * 1000, y = data['Original'][inds],
+                    name = 'Original Distribution', line = dict(color = '#1f77b4', width = 3), showlegend = True, legendgroup = 'Original Distribution')
+                fig.add_scatter(x = dom[inds] * 1000, y = data['Nordhaus_year' + str(year)][inds],
+                    name = 'Low Damage Function', line = dict(color = 'red', dash='dashdot', width = 3), showlegend = True, legendgroup = 'Low Damage Function')
+                fig.add_scatter(x = dom[inds] * 1000, y = data['Weitzman_year' + str(year)][inds],
+                    name = 'High Damage Function', line = dict(color = 'green', dash='dash', width = 3), showlegend = True, legendgroup = 'High Damage Function')
+            else:
+                fig.add_scatter(x = dom[inds] * 1000, y = data['Nordhaus_year' + str(year)][inds],
+                    name = 'Low Damage Function', line = dict(color = 'red', dash='dashdot', width = 3), showlegend = False, legendgroup = 'Low Damage Function')
+                fig.add_scatter(x = dom[inds] * 1000, y = data['Weitzman_year' + str(year)][inds],
+                    name = 'High Damage Function', line = dict(color = 'green', dash='dash', width = 3), showlegend = False, legendgroup = 'High Damage Function')
+
+
+                fig['layout'].update(title = key + " Damage Specification", showlegend = True, titlefont = dict(size = 20), height = 600)
+            
+            
+        fig['layout']['yaxis'].update(title=go.layout.yaxis.Title(
+                                        text="Probability Density", font=dict(size=16)))
+        fig['layout']['xaxis'].update(title=go.layout.xaxis.Title(
+                                        text="Climate Sensitivity", font=dict(size=16)), showgrid = False)
+
+
+        fig.data[0].visible = True
+
+        steps = []
+        for i in range(101):
+            step = dict(
+                method = 'restyle',
+                args = ['visible', [False] * len(fig.data)],
+                label = 'Year ' + "{:d}".format(i)
+                )
+            step['args'][1][0] = True
+            step['args'][1][i * 2 + 1] = True
+            step['args'][1][i * 2 + 1] = True
+            # print(step['args'][1])
+
+            steps.append(step)
+
+        sliders = [dict(active = 80,
+            currentvalue = {"prefix": "Year： "},
+            pad = {"t": 50},
+            steps = steps)]
+
+
+        # print(line_data)
+        fig.update_layout(title = 'Social Cost of Carbon Comparison',
+                    titlefont = dict(size = 20),
+                    xaxis = go.layout.XAxis(title=go.layout.xaxis.Title(
+                                    text='Years', font=dict(size=16)),
+                                            tickfont=dict(size=12), showgrid = False),
+                    yaxis = go.layout.YAxis(title=go.layout.yaxis.Title(
+                                    text='Dollars per Ton of Carbon', font=dict(size=16)),
+                                            tickfont=dict(size=12), showgrid = False),
+                    sliders = sliders
+                    )
+
+
+
+        fig.show()
 
     def densityPlot(self, key = 'Weighted'):
         years = [50, 75, 100]
@@ -1010,11 +1104,11 @@ class preferenceModel():
 
         self.modelParams['σ𝘥'] = float(np.sqrt(dee * Σ * dee.T))
         self.modelParams['xi_d'] = -1 * (1 - self.modelParams['κ'])
-        # self.modelParams['γ̄2_plus'] = self.modelParams['weight'] * 0 + (1 - self.modelParams['weight']) * self.modelParams['γ2_plus']
+        # self.modelParams['γ2bar_plus'] = self.modelParams['weight'] * 0 + (1 - self.modelParams['weight']) * self.modelParams['γ2_plus']
         
         self._create_grid(specs)
         self.weight = None
-        self.γ̄2_plus = None  # This is gammabar_2_plus, not the same as previous gamma2_plus
+        self.γ2bar_plus = None  # This is Weitzman damage function parameter
 
         self.v0 = self.modelParams['κ'] * self.R_mat + (1-self.modelParams['κ']) * self.K_mat - β𝘧 * self.F_mat
 
@@ -1025,16 +1119,17 @@ class preferenceModel():
         self.quadrature = specs['quadrature']
         self.tol = specs['tol']
         self.ε = specs['ε']
+        self.η = specs['η']
         self.n = specs['n']
-        self.status = 0
+        self.status = 1
         self.stateSpace = np.hstack([self.R_mat.reshape(-1,1,order = 'F'),
             self.F_mat.reshape(-1,1,order = 'F'), self.K_mat.reshape(-1,1,order = 'F')])
 
     def _create_grid(self, specs):
 
-        self.R = np.linspace(specs['R_min'],specs['R_max'], specs['nR'])
-        self.F = np.linspace(specs['F_min'],specs['F_max'], specs['nF'])
-        self.K = np.linspace(specs['K_min'],specs['K_max'], specs['nK'])
+        self.R = np.round(np.linspace(specs['R_min'],specs['R_max'], specs['nR']), decimals=2);
+        self.F = np.round(np.linspace(specs['F_min'],specs['F_max'], specs['nF']), decimals=2);
+        self.K = np.round(np.linspace(specs['K_min'],specs['K_max'], specs['nK']), decimals=2);
 
         self.hR = self.R[1] - self.R[0]
         self.hF = self.F[1] - self.F[0]
@@ -1045,6 +1140,7 @@ class preferenceModel():
     def _initiate_interim_vars(self):
 
         self.e = np.zeros(self.R_mat.shape)
+        self.q = np.zeros(self.R_mat.shape)
         self.i = np.zeros(self.R_mat.shape)
         self.j = np.zeros(self.R_mat.shape)
         self.v0 = np.zeros(self.R_mat.shape)
@@ -1068,9 +1164,9 @@ class preferenceModel():
         self.REs = {}
         self.fordebug = None
         
-    def __PDESolver__(self, A, B_r, B_f, B_k, C_rr, C_ff, C_kk, D, solverType):
+    def __PDESolver__(self, A, B_r, B_f, B_k, C_rr, C_ff, C_kk, D, v0, ε = 0.1, solverType = 'False Transient'):
 
-        if solverType == 'False Trasient':
+        if solverType == 'False Transient':
 
             A = A.reshape(-1,1,order = 'F')
             B = np.hstack([B_r.reshape(-1,1,order = 'F'),B_f.reshape(-1,1,order = 'F'),B_k.reshape(-1,1,order = 'F')])
@@ -1078,7 +1174,7 @@ class preferenceModel():
             D = D.reshape(-1,1,order = 'F')
             v0 = self.v0.reshape(-1,1,order = 'F')
             # v1 = v0
-            out = SolveLinSys1.solvels(self.stateSpace, A, B, C, D, v0, self.ε)
+            out = SolveLinSys.solveFT(self.stateSpace, A, B, C, D, v0, ε)
             # print(np.max(abs(v1 - v0)))
             return out
 
@@ -1087,17 +1183,15 @@ class preferenceModel():
             B = np.hstack([B_r.reshape(-1, 1, order='F'), B_f.reshape(-1, 1, order='F'), B_k.reshape(-1, 1, order='F')])
             C = np.hstack([C_rr.reshape(-1, 1, order='F'), C_ff.reshape(-1, 1, order='F'), C_kk.reshape(-1, 1, order='F')])
             D = D.reshape(-1, 1, order='F')
-            v0 = self.v0.reshape(-1, 1, order='F') * 0
-            ε = 1.0
-            out = SolveLinSys2.solvels(self.stateSpace, A, B, C, D, v0, ε)
+            v0 = v0.reshape(-1, 1, order='F')
+            out = SolveLinSys.solveFK(self.stateSpace, A, B, C, D, v0)
             return out
 
         else:
             raise ValueError('Solver Type Not Supported')
             return None
 
-    def solveHJB(self, damageSpec):
-        # damageSpec ~ dictionary type that documents the 
+    def solveHJB(self, damageSpec, initial_guess = None):
         start_time = time.time()
 
         if damageSpec == 'High':
@@ -1107,8 +1201,8 @@ class preferenceModel():
         else:
             self.weight = 0.5
 
-        # alter γ̄2_plus damage function additive term according to the model weight
-        self.γ̄2_plus = self.weight * 0 + (1 - self.weight) * self.modelParams['γ2_plus']
+        # alter γ2bar_plus damage function additive term according to the model weight
+        self.γ2bar_plus = self.weight * 0 + (1 - self.weight) * self.modelParams['γ2_plus']
 
         # unpacking the variables from model class
         δ  = self.modelParams['δ']
@@ -1138,7 +1232,7 @@ class preferenceModel():
         λ = self.modelParams['λ']
         σ𝘥 = self.modelParams['σ𝘥']
         xi_d = self.modelParams['xi_d']
-        γ̄2_plus = self.γ̄2_plus
+        γ2bar_plus = self.γ2bar_plus
         hR = self.hR
         hK = self.hK
         hF = self.hF
@@ -1153,16 +1247,23 @@ class preferenceModel():
         a = β𝘧 - 5 * np.sqrt(σᵦ)
         b = β𝘧 + 5 * np.sqrt(σᵦ)
 
+        
         self.v0 = κ * R_mat + (1-κ) * K_mat - β𝘧 * F_mat
-        episode = 0
-        out_comp = None
+        episode = 1
+        out_comp = np.zeros(R_mat.shape)
         vold = self.v0.copy()
+        if initial_guess is not None:
+            smart_guess = pickle.load(open('./data/smartguesses.pickle', 'rb', -1))[initial_guess]
 
-        while self.status == 0 or np.max(abs(out_comp - vold) / self.ε) > self.tol:
+            self.v0 = smart_guess['v0']
+            self.q = smart_guess['q']
+            e_star = smart_guess['e']
+
+        while self.status == 0 or np.max(abs(out_comp - vold)) > self.tol:
 
             vold = self.v0.copy()
             # Applying finite difference scheme to the value function
-            v0_dr = finiteDiff(self.v0,0,1,hR,1e-8) 
+            v0_dr = finiteDiff(self.v0,0,1,hR) 
             v0_df = finiteDiff(self.v0,1,1,hF)
             v0_dk = finiteDiff(self.v0,2,1,hK)
 
@@ -1170,23 +1271,54 @@ class preferenceModel():
             v0_dff = finiteDiff(self.v0,1,2,hF)
             v0_dkk = finiteDiff(self.v0,2,2,hK)
 
+            v0_drr[v0_dr < 1e-16] = 0 
+            v0_dr[v0_dr < 1e-16] = 1e-16   # capping v0_dr, and v0_drr to 
+
             if self.status == 0:
                 # First time into the loop
                 B1 = v0_dr - xi_d * (γ1 + γ2 * F_mat * β𝘧 + γ2_plus * (F_mat * β𝘧 - F̄) ** (power - 1) * (F_mat >= (crit / β𝘧))) * β𝘧 * np.exp(R_mat) - v0_df * np.exp(R_mat)
                 C1 = - δ * κ
                 self.e = -C1 / B1
                 e_hat = self.e
-                Acoeff = np.exp(R_mat - K_mat)
-                Bcoeff = δ * (1-κ) / (np.exp(-R_mat + K_mat) * v0_dr * ψ0 * 0.5) + v0_dk * ϕ0 / (np.exp(-R_mat + K_mat) * v0_dr * ψ0 * 0.5)
+                # Acoeff = np.exp(R_mat - K_mat)
+                # Bcoeff = δ * (1-κ) / (np.exp(-R_mat + K_mat) * v0_dr * ψ0 * 0.5) + v0_dk * ϕ0 / (np.exp(-R_mat + K_mat) * v0_dr * ψ0 * 0.5)
+                Acoeff = np.ones(R_mat.shape)
+                Bcoeff = ((δ * (1 - κ) * ϕ1 + ϕ0 * ϕ1 * v0_dk) * δ * (1 - κ) / (v0_dr * ψ0 * 0.5) * np.exp(0.5 * (R_mat - K_mat))) / (δ * (1 - κ) * ϕ1)
                 Ccoeff = -α  - 1 / ϕ1
                 self.j = ((-Bcoeff + np.sqrt(Bcoeff ** 2 - 4 * Acoeff * Ccoeff)) / (2 * Acoeff)) ** 2
-                self.i = (v0_dk * ϕ0 / (np.exp(-R_mat + K_mat) * v0_dr * ψ0 * 0.5)) * (self.j ** 0.5) - 1 / ϕ1
+                self.i = α - self.j - (δ * (1 - κ)) / (v0_dr * ψ0 * 0.5) * self.j ** 0.5 * np.exp(0.5 * (R_mat - K_mat))
+                self.q = δ * (1 - κ) / (α - self.i - self.j)
             else:
                 e_hat = e_star
-                self.j = ((α + 1 / ϕ1) * np.exp(-R_mat + K_mat) * (v0_dr * ψ0 * ψ1) / ((v0_dr * ψ0 * ψ1) * self.j ** (ψ1) + (δ * (1-κ) + v0_dk * ϕ0))) ** (1 / (1 - ψ1))
-                self.j = self.j * (v0_dr > 1e-8)
-                self.i = ((v0_dk * ϕ0 / (np.exp(-R_mat + K_mat) * v0_dr * ψ0 * ψ1)) * (self.j ** (1 - ψ1)) - 1 / ϕ1) * (v0_dr > 1e-8) + (v0_dr <= 1e-8) * (v0_dk * ϕ0 * α - δ * (1-κ) / ϕ1) / (δ * (1-κ) + v0_dk * ϕ0)
-            
+                
+                # Cobeweb scheme to update i and j; q is 
+                Converged = 0
+                nums = 0
+                q = self.q
+                while Converged == 0:
+                    i_star = (ϕ0 * ϕ1 * v0_dk / q - 1) / ϕ1
+                    j_star = (q * np.exp(ψ1 * (R_mat - K_mat)) / (v0_dr * ψ0 * ψ1)) ** (1 / (ψ1 - 1))
+                    if α > np.max(i_star + j_star):
+                        q_star = self.η * δ * (1 - κ) / (α - i_star - j_star) + (1 - self.η) * q
+                    else:
+                        q_star = 2 * q
+                    if np.max(abs(q - q_star) / self.η) <= 1e-5:
+                        Converged = 1
+                        q = q_star
+                        i = i_star
+                        j = j_star
+
+                    else:
+                        q = q_star
+                        i = i_star
+                        j = j_star
+                    
+                    nums += 1
+                print('Cobweb Passed, iterations: {}, i error: {:10f}, j error: {:10f}'.format(nums, np.max(i - i_star), np.max(j - j_star)))
+                self.q = q
+                self.i = i
+                self.j = j
+
             self.a1 = np.zeros(R_mat.shape)
             b1 = xi_d * e_hat * np.exp(R_mat) * γ1
             c1 = 2 * xi_d * e_hat * np.exp(R_mat) * F_mat * γ2 
@@ -1194,7 +1326,7 @@ class preferenceModel():
             self.β̃1 = β𝘧 - c1 * β𝘧 / (ξₚ * self.λ̃1) -  b1 /  (ξₚ * self.λ̃1)
             I1 = self.a1 - 0.5 * np.log(λ) * ξₚ + 0.5 * np.log(self.λ̃1) * ξₚ + 0.5 * λ * β𝘧 ** 2 * ξₚ - 0.5 * self.λ̃1 * (self.β̃1) ** 2 * ξₚ
             #     R1 = \xi\_p.*(I1-(a1+b1.*β̃1+c1./2.*(β̃1).^2+c1./2./\lambda\tilde_1));
-            self.R1 = 1 / ξₚ * (I1 - (self.a1 + b1 * self.β̃1 + c1 * self.β̃1 ** 2 + c1 / self.λ̃1))
+            self.R1 = 1 / ξₚ * (I1 - (self.a1 + b1 * self.β̃1 + c1 / 2 * self.β̃1 ** 2 + c1 / 2 / self.λ̃1))
             J1_without_e = xi_d * (γ1 * self.β̃1 + γ2 * F_mat * (self.β̃1 ** 2 + 1 / self.λ̃1)) * np.exp(R_mat)
 
             self.π̃1 = self.weight * np.exp(-1 / ξₚ * I1)
@@ -1245,31 +1377,32 @@ class preferenceModel():
             RE_total = ξₚ * self.RE
 
             A = -δ * np.ones(R_mat.shape)
-            B_r = -e_star + ψ0 * (self.j ** ψ1) - 0.5 * (σ𝘳 ** 2)
+            # B_r = -e_star + ψ0 * (self.j ** ψ1) - 0.5 * (σ𝘳 ** 2)
+            B_r = -e_star + ψ0 * (self.j ** ψ1) * np.exp(ψ1 * (K_mat - R_mat)) - 0.5 * (σ𝘳 ** 2)
             B_f = e_star * np.exp(R_mat)
             B_k = μ̄ₖ + ϕ0 * np.log(1 + self.i * ϕ1) - 0.5 * (σ𝘬 ** 2)
             C_rr = 0.5 * σ𝘳 ** 2 * np.ones(R_mat.shape)
             C_ff = np.zeros(R_mat.shape)
             C_kk = 0.5 * σ𝘬 ** 2 * np.ones(R_mat.shape)
-            D = δ * κ * np.log(e_star) + δ * κ * R_mat + δ * (1 - κ) * (np.log(α - self.i - self.j * np.exp(R_mat - K_mat)) + K_mat) + I_term #  + drift_distort + RE_total
+            D = δ * κ * np.log(e_star) + δ * κ * R_mat + δ * (1 - κ) * (np.log(α - self.i - self.j) + K_mat) + drift_distort + RE_total # + I_term 
 
-            out = self.__PDESolver__(A, B_r, B_f, B_k, C_rr, C_ff, C_kk, D, 'False Trasient')
+            out = self.__PDESolver__(A, B_r, B_f, B_k, C_rr, C_ff, C_kk, D, self.v0, self.ε, solverType='False Transient')
             
             out_comp = out[2].reshape(self.v0.shape,order = "F")
 
             PDE_rhs = A * self.v0 + B_r * v0_dr + B_f * v0_df + B_k * v0_dk + C_rr * v0_drr + C_kk * v0_dkk + C_ff * v0_dff + D
             PDE_Err = np.max(abs(PDE_rhs))
             FC_Err = np.max(abs((out_comp - self.v0)))
-            if episode % 100 == 0:
-                print("Episode {:d}: PDE Error: {:.10f}; False Transient Error: {:.10f}; Iterations: {:d}; CG Error: {:.10f}" .format(episode, PDE_Err, FC_Err, out[0], out[1]))
+            # if episode % 100 == 0:
+            print("Episode {:d}: PDE Error: {:.10f}; False Transient Error: {:.10f}; Iterations: {:d}; CG Error: {:.10f}" .format(episode, PDE_Err, FC_Err, out[0], out[1]))
             episode += 1
             self.v0 = out_comp
             if self.status == 0:
-                self.status = 1
+                self.status = 1  # indicated problem solved
 
         self.expec_e_sum = expec_e_sum
 
-        self.status = 2
+        self.status = 2  # indicated HJB solved
         print("Episode {:d}: PDE Error: {:.10f}; False Transient Error: {:.10f}; Iterations: {:d}; CG Error: {:.10f}" .format(episode, PDE_Err, FC_Err, out[0], out[1]))
         print("--- %s seconds ---" % (time.time() - start_time))
 
@@ -1302,7 +1435,7 @@ class preferenceModel():
         F0 = self.modelParams['F0']
         β𝘧 = self.modelParams['β𝘧']
         σᵦ = self.modelParams['σᵦ']
-        γ̄2_plus = self.γ̄2_plus
+        γ2bar_plus = self.γ2bar_plus
         hR = self.hR
         hK = self.hK
         hF = self.hF
@@ -1369,7 +1502,7 @@ class preferenceModel():
             return np.exp(-1 / ξₚ * xi_d * (γ1 * x + γ2 * x ** 2 * F_mat + γ2_plus * x * (x * F_mat - F̄) ** (power - 1) * ((x * F_mat - F̄) >= 0)) * np.exp(R_mat) * self.e) / scale_2
             
         def base_model_drift_func(x):
-            return np.exp(R_mat) * self.e * (γ1 * x + γ2 * x ** 2 * F_mat + self.γ̄2_plus * x * (x * F_mat - F̄) ** (power - 1) * ((x * F_mat - F̄) >= 0)) * norm.pdf(x,β𝘧,np.sqrt(σᵦ))
+            return np.exp(R_mat) * self.e * (γ1 * x + γ2 * x ** 2 * F_mat + self.γ2bar_plus * x * (x * F_mat - F̄) ** (power - 1) * ((x * F_mat - F̄) >= 0)) * norm.pdf(x,β𝘧,np.sqrt(σᵦ))
         base_model_drift =  quad_int(base_model_drift_func, a, b, n, 'legendre')
 
         mean_nordhaus = self.β̃1
@@ -1377,7 +1510,7 @@ class preferenceModel():
         nordhaus_model_drift = (γ1 * mean_nordhaus + γ2 * (1 / lambda_tilde_nordhaus + mean_nordhaus ** 2) * F_mat) * np.exp(R_mat) * self.e
 
         def weitzman_model_drift_func(x):
-            return np.exp(R_mat) * self.e * q2_tilde_fnc(x) * (γ1 * x + γ2 * x ** 2 * F_mat + γ̄2_plus * x * (x * F_mat - F̄ ) ** (power - 1) * ((x * F_mat - F̄) >= 0)) * norm.pdf(x,β𝘧,np.sqrt(σᵦ))
+            return np.exp(R_mat) * self.e * q2_tilde_fnc(x) * (γ1 * x + γ2 * x ** 2 * F_mat + γ2_plus * x * (x * F_mat - F̄ ) ** (power - 1) * ((x * F_mat - F̄) >= 0)) * norm.pdf(x,β𝘧,np.sqrt(σᵦ))
         weitzman_model_drift = quad_int(weitzman_model_drift_func, a, b, n, 'legendre')
 
         nordhaus_drift_func_r = GridInterp(gridpoints, nordhaus_model_drift, method)
@@ -1394,7 +1527,7 @@ class preferenceModel():
 
         # function handles
         def muR(x):
-            return -e_func(x) + ψ0 * j_func(x) ** ψ1
+            return -e_func(x) + ψ0 * (j_func(x) * x[1] / x[0]) ** ψ1
         def muK(x): 
             return (μ̄k + ϕ0 * np.log(1 + i_func(x) * ϕ1))
         def muF(x):
@@ -1497,7 +1630,7 @@ class preferenceModel():
             v_dk_hists[:,[iters]] = v_dk_hist
             v_hists[:,[iters]] = v_hist
 
-    def SCCDecompose(self, AmbiguityNeutral = False, method = 'Linear'):
+    def SCCDecompose(self, AmbiguityNeutral = False, method = 'Linear', initial_guess = None):
         R_mat = self.R_mat
         F_mat = self.F_mat
         K_mat = self.K_mat
@@ -1505,6 +1638,12 @@ class preferenceModel():
         pers = 400 # can modify
         its = 1
 
+        if initial_guess is not None:
+            smart_guess = pickle.load(open('./data/smartguesses.pickle', 'rb', -1))[initial_guess]
+            v0_base = smart_guess['base']
+            v0_worst = smart_guess['worst']
+
+ 
         if AmbiguityNeutral:
             α  = self.modelParams['α']
             κ  = self.modelParams['κ']
@@ -1555,7 +1694,7 @@ class preferenceModel():
             λ = self.modelParams['λ']
             σ𝘥 = self.modelParams['σ𝘥']
             xi_d = self.modelParams['xi_d']
-            γ̄2_plus = self.γ̄2_plus
+            γ2bar_plus = self.γ2bar_plus
             hR = self.hR
             hK = self.hK
             hF = self.hF
@@ -1565,14 +1704,14 @@ class preferenceModel():
             b = β𝘧 + 5 * np.sqrt(σᵦ)
             # Base model
             def base_model_flow_func(x):
-                return (γ2 * x ** 2 + γ̄2_plus * x ** 2 * ((x * F_mat - F̄) >=0)) * np.exp(R_mat) * self.e *  norm.pdf(x,β𝘧,np.sqrt(σᵦ))
+                return (γ2 * x ** 2 + γ2bar_plus * x ** 2 * ((x * F_mat - F̄) >=0)) * np.exp(R_mat) * self.e *  norm.pdf(x,β𝘧,np.sqrt(σᵦ))
             base_model_flow = quad_int(base_model_flow_func, a, b, n, 'legendre')
             flow_base = base_model_flow
 
             # input for solver
 
             A = -δ * np.ones(R_mat.shape)
-            B_r = -self.e + ψ0 * (self.j ** ψ1) - 0.5 * (σ𝘳 ** 2)
+            B_r = -self.e + ψ0 * (self.j ** ψ1) * np.exp(ψ1 * (K_mat - R_mat)) - 0.5 * (σ𝘳 ** 2)
             B_k = μ̄ₖ + ϕ0 * np.log(1 + self.i * ϕ1) - 0.5 * (σ𝘬 ** 2)
             B_f = self.e * np.exp(R_mat)
             C_rr = 0.5 * σ𝘳 ** 2 * np.ones(R_mat.shape)
@@ -1580,17 +1719,21 @@ class preferenceModel():
             C_ff = np.zeros(R_mat.shape)
             D = flow_base
 
-            out = self.__PDESolver__(A, B_r, B_f, B_k, C_rr, C_ff, C_kk, D, 'Feyman Kac')
+
+            out = self.__PDESolver__(A, B_r, B_f, B_k, C_rr, C_ff, C_kk, D, v0_base, solverType='Feyman Kac')
             v0_base = out[2].reshape(self.v0.shape, order="F")
             self.v0_base = v0_base
 
-            v0_dr_base = finiteDiff(v0_base,0,1,hR,1e-8) 
+            v0_dr_base = finiteDiff(v0_base,0,1,hR) 
             v0_df_base = finiteDiff(v0_base,1,1,hF)
             v0_dk_base = finiteDiff(v0_base,2,1,hK)
 
             v0_drr_base = finiteDiff(v0_base,0,2,hR)
             v0_dff_base = finiteDiff(v0_base,1,2,hF)
             v0_dkk_base = finiteDiff(v0_base,2,2,hK)
+
+            v0_drr_base[v0_dr_base < 1e-16] = 0
+            v0_dr_base[v0_dr_base < 1e-16] = 1e-16
 
             PDE_rhs = A * v0_base + B_r * v0_dr_base + B_f * v0_df_base + B_k * v0_dk_base + C_rr * v0_drr_base + C_kk * v0_dkk_base + C_ff * v0_dff_base + D
             PDE_Err = np.max(abs(PDE_rhs))
@@ -1624,7 +1767,7 @@ class preferenceModel():
             flow_tilted = π̃1_norm * nordhaus_model_flow + π̃2_norm * weitzman_model_flow
 
             A = -δ * np.ones(R_mat.shape)
-            B_r = -self.e + ψ0 * (self.j ** ψ1) - 0.5 * (σ𝘳 ** 2)
+            B_r = -self.e + ψ0 * (self.j ** ψ1) * np.exp(ψ1 * (K_mat - R_mat)) - 0.5 * (σ𝘳 ** 2)
             B_k = μ̄ₖ + ϕ0 * np.log(1 + self.i * ϕ1) - 0.5 * (σ𝘬 ** 2)
             B_f = self.e * np.exp(R_mat)
             C_rr = 0.5 * σ𝘳 ** 2 * np.ones(R_mat.shape)
@@ -1632,17 +1775,20 @@ class preferenceModel():
             C_ff = np.zeros(R_mat.shape)
             D = flow_tilted
 
-            out = self.__PDESolver__(A, B_r, B_f, B_k, C_rr, C_ff, C_kk, D, 'Feyman Kac')
+            out = self.__PDESolver__(A, B_r, B_f, B_k, C_rr, C_ff, C_kk, D, v0_worst, solverType='Feyman Kac')
             v0_worst = out[2].reshape(self.v0.shape, order="F")
             self.v0_worst = v0_worst
 
-            v0_dr_worst = finiteDiff(v0_worst,0,1,hR,1e-8) 
+            v0_dr_worst = finiteDiff(v0_worst,0,1,hR) 
             v0_df_worst = finiteDiff(v0_worst,1,1,hF)
             v0_dk_worst = finiteDiff(v0_worst,2,1,hK)
 
             v0_drr_worst = finiteDiff(v0_worst,0,2,hR)
             v0_dff_worst = finiteDiff(v0_worst,1,2,hF)
             v0_dkk_worst = finiteDiff(v0_worst,2,2,hK)
+
+            v0_drr_worst[v0_dr_worst < 1e-16] = 0
+            v0_dr_worst[v0_dr_worst < 1e-16] = 1e-16
 
             PDE_rhs = A * v0_worst + B_r * v0_dr_worst + B_f * v0_df_worst + B_k * v0_dk_worst + C_rr * v0_drr_worst + C_kk * v0_dkk_worst + C_ff * v0_dff_worst + D
             PDE_Err = np.max(abs(PDE_rhs))
@@ -1651,13 +1797,16 @@ class preferenceModel():
             
             # SCC decomposition
 
-            v0_dr = finiteDiff(self.v0,0,1,hR,1e-8) 
+            v0_dr = finiteDiff(self.v0,0,1,hR) 
             v0_df = finiteDiff(self.v0,1,1,hF)
             v0_dk = finiteDiff(self.v0,2,1,hK)
 
             v0_drr = finiteDiff(self.v0,0,2,hR)
             v0_dff = finiteDiff(self.v0,1,2,hF)
             v0_dkk = finiteDiff(self.v0,2,2,hK)
+
+            v0_drr[v0_dr < 1e-16] = 0
+            v0_dr[v0_dr < 1e-16] = 1e-16
 
             gridpoints = (self.R, self.F, self.K)  # can modify
 
@@ -1683,7 +1832,7 @@ class preferenceModel():
 
             def V_d_baseline_func(x):
                 return xi_d * (γ1 * x + γ2 * F_mat * x** 2 +
-                                self.γ̄2_plus * x * (x * F_mat - F̄) * (power - 1)
+                                self.γ2bar_plus * x * (x * F_mat - F̄) * (power - 1)
                                 * ((x * F_mat - F̄) >= 0 )) * norm.pdf(x, β𝘧, np.sqrt(σᵦ))
             V_d_baseline = quad_int(V_d_baseline_func, a, b, n, 'legendre')
             ME2b = -V_d_baseline
@@ -1779,7 +1928,9 @@ class preferenceModel():
 
         RE_plot = np.zeros(pers)
         weight_plot = np.zeros(pers)
-        beta_f_space = np.linspace(a_10std,b_10std,200)
+        # beta_f_space = np.linspace(a_10std,b_10std,200)
+        beta_f_space = np.linspace(a,b,200)
+
         self.beta_f_space = beta_f_space
 
         #Relative Entropy
@@ -1812,7 +1963,7 @@ class preferenceModel():
         original_dist = norm.pdf(beta_f_space, β𝘧, np.sqrt(σᵦ))
         self.Dists['Original'] = original_dist
 
-        for tm in [1,100,200,300,400]:
+        for tm in range(0, 404, 4):
             R0 = self.hists[tm-1,0,0]
             K0 = self.hists[tm-1,1,0]
             F0 = self.hists[tm-1,2,0]
@@ -1840,6 +1991,8 @@ class preferenceModel():
                 self.Dists['Weitzman_year' + str(int((tm) / 4))] = weitzman
                 self.Dists['Nordhaus_year' + str(int((tm) / 4))] = nordhaus
                 self.Dists['Weighted_year' + str(int((tm) / 4))] = nordhaus * Dists_weight + weitzman * (1 - Dists_weight)
+        
+        print('here')
 
 class growthModel():
 
@@ -2623,11 +2776,11 @@ class competitiveModel():
 
         self.modelParams['σ𝘥'] = float(np.sqrt(dee * Σ * dee.T))
         self.modelParams['xi_d'] = -1 * (1 - self.modelParams['κ'])
-        # self.modelParams['γ̄2_plus'] = self.modelParams['weight'] * 0 + (1 - self.modelParams['weight']) * self.modelParams['γ2_plus']
+        # self.modelParams['γ2bar_plus'] = self.modelParams['weight'] * 0 + (1 - self.modelParams['weight']) * self.modelParams['γ2_plus']
         
         self._create_grid(specs)
         self.weight = None
-        self.γ̄2_plus = None  # This is gammabar_2_plus, not the same as previous gamma2_plus
+        self.γ2bar_plus = None  # This is gammabar_2_plus, not the same as previous gamma2_plus
 
         self.v0 = None
 
@@ -2746,8 +2899,8 @@ class competitiveModel():
         else:
             self.weight = 0.5
 
-        # alter γ̄2_plus damage function additive term according to the model weight
-        self.γ̄2_plus = self.weight * 0 + (1 - self.weight) * self.modelParams['γ2_plus']
+        # alter γ2bar_plus damage function additive term according to the model weight
+        self.γ2bar_plus = self.weight * 0 + (1 - self.weight) * self.modelParams['γ2_plus']
 
         # unpacking the variables from model class
         δ  = self.modelParams['δ']
@@ -2777,7 +2930,7 @@ class competitiveModel():
         λ = self.modelParams['λ']
         σ𝘥 = self.modelParams['σ𝘥']
         xi_d = self.modelParams['xi_d']
-        γ̄2_plus = self.γ̄2_plus
+        γ2bar_plus = self.γ2bar_plus
         hR = self.hR
         hK = self.hK
         n = self.n
@@ -2969,7 +3122,7 @@ class competitiveModel():
         λ = self.modelParams['λ']
         σ𝘥 = self.modelParams['σ𝘥']
         xi_d = self.modelParams['xi_d']
-        γ̄2_plus = self.γ̄2_plus
+        γ2bar_plus = self.γ2bar_plus
         hR = self.basemodel.hR
         hK = self.basemodel.hK
         hF = self.basemodel.hF
@@ -2981,7 +3134,7 @@ class competitiveModel():
         b = β𝘧 + 5 * np.sqrt(σᵦ)
         # Base model
         def base_model_flow_func(x):
-            return (γ2 * x ** 2 + γ̄2_plus * x ** 2 * ((x * F_mat - F̄) >=0)) * np.exp(R_mat) * self.basemodel.e *  norm.pdf(x,β𝘧,np.sqrt(σᵦ))
+            return (γ2 * x ** 2 + γ2bar_plus * x ** 2 * ((x * F_mat - F̄) >=0)) * np.exp(R_mat) * self.basemodel.e *  norm.pdf(x,β𝘧,np.sqrt(σᵦ))
         base_model_flow = quad_int(base_model_flow_func, a, b, n, 'legendre')
         flow_base = base_model_flow
 
@@ -3098,7 +3251,7 @@ class competitiveModel():
 
         def V_d_baseline_func(x):
             return xi_d * (γ1 * x + γ2 * F_mat * x** 2 +
-                            self.basemodel.γ̄2_plus * x * (x * F_mat - F̄) * (power - 1)
+                            self.basemodel.γ2bar_plus * x * (x * F_mat - F̄) * (power - 1)
                             * ((x * F_mat - F̄) >= 0 )) * norm.pdf(x, β𝘧, np.sqrt(σᵦ))
         V_d_baseline = quad_int(V_d_baseline_func, a, b, n, 'legendre')
         ME2b = -V_d_baseline
@@ -3155,16 +3308,28 @@ if __name__ == "__main__":
     #   print(key,val)
     print(os.getcwd())
 
-    m = modelSolutions(method = 'Spline')
+    print('------Model Solutions------')
+    m = modelSolutions()
     m.solveProblem()
-    print("-----------Competitive-------------------")
+    # print("-----------Preference-------------------")
+    # m = preferenceModel()
+    # m.solveHJB('Weighted', 'WeightedAverse')
+    # m.Simulate()
+    # # print(m.hists[:,-1]) 
+    # m.SCCDecompose(initial_guess = 'WeightedAverse')
+    # m.computeProbs('Weighted')
 
-    m.solveComps()
 
-    print("-----------Growth-------------------")
+    # m = modelSolutions(method = 'Spline')
+    # m.solveProblem()
+    # print("-----------Competitive-------------------")
 
-    m.solveGrowth()
-    m.SCCPlot(spec = 'Growth')
+    # m.solveComps()
+
+    # print("-----------Growth-------------------")
+
+    # m.solveGrowth()
+    # m.SCCPlot(spec = 'Growth')
     # print("-----------Checking-------------------")
     # if not os.path.isfile('./data/comppref.pickle'):
     #     preferenceParams['ξₚ'] = 1 / 4500
