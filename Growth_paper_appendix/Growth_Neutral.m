@@ -397,12 +397,6 @@ while (max(max(max(max(abs(out_comp - vold)))))) > tol % check for convergence
 
     v0 = v0.*ones(size(v0));
     v0 = reshape(out,size(v0));
-
-    if (mod(iter, 100) == 0)
-        s0 = '/HJB_Growth_neutral_temp';
-        filename = [pwd, s0];
-        save(filename); % save HJB solution
-    end 
     
     v0_dt = zeros(size(v0));
     v0_dt(:,2:end-1,:) = (1./(2.*ht)).*(v0(:,3:end,:)-v0(:,1:end-2,:));
