@@ -70,6 +70,7 @@ preferenceParams['βMcD'] = McD / 1000.0
 
 # Parameters for the model in growth setting
 growthParams = OrderedDict({})
+growthParams['ξₚ'] = 1 / 175 
 growthParams['δ'] = 0.01  # subjective rate of discount
 growthParams['κ'] = 0.032      
 growthParams['σ𝘨'] = 0.02
@@ -111,16 +112,17 @@ preferenceSpecs['n'] = 30
 # Specification for Model's solver in growth setting
 growthSpecs = OrderedDict({})
 growthSpecs['tol'] = 1e-8
-growthSpecs['ε'] = 0.5
+growthSpecs['ε'] = 0.1
+growthSpecs['η'] = 0.05
 growthSpecs['R_min'] = 0
 growthSpecs['R_max'] = 9
-growthSpecs['nR'] = 30
+growthSpecs['nR'] = 181
 growthSpecs['F_min'] = 0
 growthSpecs['F_max'] = 750
-growthSpecs['nF'] = 30
+growthSpecs['nF'] = 31
 growthSpecs['K_min'] = 0
-growthSpecs['K_max'] = 9
-growthSpecs['nK'] = 25
+growthSpecs['K_max'] = 18
+growthSpecs['nK'] = 121
 
 compSpecs = deepcopy(preferenceSpecs)
 compSpecs['R_max'] = 12
@@ -361,28 +363,32 @@ class modelSolutions():
         if os.path.isfile('./data/GrowthAverse.pickle'):
             self.growthmodels['GrowthAverse'] = pickle.load(open("./data/GrowthAverse.pickle", "rb", -1))
         else:
-            self.growthParams['ξₚ'] = 1 / 4500
-            self.growthmodels['GrowthAverse'] = growthModel(self.growthParams, self.growthSpecs)
-            self.growthmodels['GrowthAverse'].solveHJB()
-            self.growthmodels['GrowthAverse'].Simulate(self.method)
-            self.growthmodels['GrowthAverse'].SCCDecompose(method = self.method)
-            self.growthmodels['GrowthAverse'].computeProbs(method = self.method)
+            self.growthParams['ξₚ'] = 1 / 175
+            key = 'GrowthAverse'
+            print('-------' + key + '-------')
+            self.growthmodels[key] = growthModel(self.growthParams, self.growthSpecs)
+            self.growthmodels[key].solveHJB(initial_guess = key + 'guess')
+            self.growthmodels[key].Simulate(self.method)
+            self.growthmodels[key].SCCDecompose(method = self.method, initial_guess = key + 'guess')
+            self.growthmodels[key].computeProbs(method = self.method)
 
 
             with open('./data/GrowthAverse.pickle', "wb") as file_:
-                pickle.dump(self.growthmodels['GrowthAverse'], file_, -1)
+                pickle.dump(self.growthmodels[key], file_, -1)
 
         if os.path.isfile('./data/GrowthNeutral.pickle'):
             self.growthmodels['GrowthNeutral'] = pickle.load(open("./data/GrowthNeutral.pickle", "rb", -1))
         else:
             self.growthParams['ξₚ'] = 1 / 0.001
-            self.growthmodels['GrowthNeutral'] = growthModel(self.growthParams, self.growthSpecs)
-            self.growthmodels['GrowthNeutral'].solveHJB()
-            self.growthmodels['GrowthNeutral'].Simulate(self.method)
-            self.growthmodels['GrowthNeutral'].SCCDecompose(method = self.method)
+            key = 'GrowthNeutral'
+            print('-------' + key + '-------')
+            self.growthmodels[key] = growthModel(self.growthParams, self.growthSpecs)
+            self.growthmodels[key].solveHJB(initial_guess = key + 'guess')
+            self.growthmodels[key].Simulate(self.method)
+            self.growthmodels[key].SCCDecompose(method = self.method, initial_guess = key + 'guess') 
 
             with open('./data/GrowthNeutral.pickle', "wb") as file_:
-                pickle.dump(self.growthmodels['GrowthNeutral'], file_, -1)
+                pickle.dump(self.growthmodels[key], file_, -1)
 
     def solvexiModels(self, xiList = [ 1 / 4000, 0.0003, 0.0004, 0.0006, 0.001, 0.002, 0.005, 0.1, 1, 100, 1000], key = 'Weighted'):
         if os.path.isfile('./data/ximodels.pickle'):
@@ -1179,7 +1185,7 @@ class preferenceModel():
         self.ε = specs['ε']
         self.η = specs['η']
         self.n = specs['n']
-        self.status = 1
+        self.status = 0
         self.stateSpace = np.hstack([self.R_mat.reshape(-1,1,order = 'F'),
             self.F_mat.reshape(-1,1,order = 'F'), self.K_mat.reshape(-1,1,order = 'F')])
 
@@ -1316,6 +1322,7 @@ class preferenceModel():
             self.v0 = smart_guess['v0']
             self.q = smart_guess['q']
             e_star = smart_guess['e']
+            self.status = 1
 
         while self.status == 0 or np.max(abs(out_comp - vold)) > self.tol:
 
@@ -1331,7 +1338,7 @@ class preferenceModel():
 
             v0_drr[v0_dr < 1e-16] = 0 
             v0_dr[v0_dr < 1e-16] = 1e-16   # capping v0_dr, and v0_drr to 
-
+            print(self.status)
             if self.status == 0:
                 # First time into the loop
                 B1 = v0_dr - xi_d * (γ1 + γ2 * F_mat * β𝘧 + γ2_plus * (F_mat * β𝘧 - F̄) ** (power - 1) * (F_mat >= (crit / β𝘧))) * β𝘧 * np.exp(R_mat) - v0_df * np.exp(R_mat)
@@ -2140,6 +2147,7 @@ class growthModel():
         # Specifying model types and solver arguments
         self.tol = specs['tol']
         self.ε = specs['ε']
+        self.η = specs['η']
         # self.n = specs['n']
         self.status = 0
         self.stateSpace = np.hstack([self.R_mat.reshape(-1,1,order = 'F'),
@@ -2147,9 +2155,9 @@ class growthModel():
 
     def _create_grid(self, specs):
 
-        self.R = np.linspace(specs['R_min'],specs['R_max'], specs['nR'])
-        self.F = np.linspace(specs['F_min'],specs['F_max'], specs['nF'])
-        self.K = np.linspace(specs['K_min'],specs['K_max'], specs['nK'])
+        self.R = np.round(np.linspace(specs['R_min'],specs['R_max'], specs['nR']), decimals=2);
+        self.F = np.round(np.linspace(specs['F_min'],specs['F_max'], specs['nF']), decimals=2);
+        self.K = np.round(np.linspace(specs['K_min'],specs['K_max'], specs['nK']), decimals=2);
 
         self.hR = self.R[1] - self.R[0]
         self.hF = self.F[1] - self.F[0]
@@ -2163,7 +2171,7 @@ class growthModel():
         self.i = np.zeros(self.R_mat.shape)
         self.j = np.zeros(self.R_mat.shape)
         self.v0 = np.zeros(self.R_mat.shape)
-
+        self.q = np.zeros(self.R_mat.shape)
         self.RE = np.zeros(self.R_mat.shape)
         self.a_ = [] 
         self.b_ = [] 
@@ -2188,9 +2196,9 @@ class growthModel():
         self.Dists = {}
         self.REs = {}
         
-    def __PDESolver__(self, A, B_r, B_f, B_k, C_rr, C_ff, C_kk, D, v0, ε, solverType):
+    def __PDESolver__(self, A, B_r, B_f, B_k, C_rr, C_ff, C_kk, D, v0, ε = 0.1, solverType = 'False Transient'):
 
-        if solverType == 'False Trasient':
+        if solverType == 'False Transient':
 
             A = A.reshape(-1,1,order = 'F')
             B = np.hstack([B_r.reshape(-1,1,order = 'F'),B_f.reshape(-1,1,order = 'F'),B_k.reshape(-1,1,order = 'F')])
@@ -2208,7 +2216,6 @@ class growthModel():
             C = np.hstack([C_rr.reshape(-1, 1, order='F'), C_ff.reshape(-1, 1, order='F'), C_kk.reshape(-1, 1, order='F')])
             D = D.reshape(-1, 1, order='F')
             v0 = v0.reshape(-1, 1, order='F') 
-            ε = 1.0
             out = SolveLinSys.solveFK(self.stateSpace, A, B, C, D, v0)
             return out
 
@@ -2216,7 +2223,7 @@ class growthModel():
             raise ValueError('Solver Type Not Supported')
             return None
 
-    def solveHJB(self):
+    def solveHJB(self, initial_guess = None):
         # damageSpec ~ dictionary type that documents the 
         start_time = time.time()
         episode = 0
@@ -2251,36 +2258,71 @@ class growthModel():
         gamma2 = self.gamma2
         self.v0 = κ * R_mat + (1-κ) * K_mat
         episode = 0
-
-        while episode == 0 or np.max(abs((out_comp - vold))) > self.tol:
+        out_comp = np.zeros(R_mat.shape)
+        vold = self.v0.copy()
+        if initial_guess is not None:
+            smart_guess = pickle.load(open('./data/{}.pickle'.format(initial_guess), 'rb', -1))
+            self.v0 = smart_guess['v0']
+            self.q = smart_guess['q']
+            e_star = smart_guess['e']
+            self.status = 1
+        
+        while  episode <= 0:
             vold = self.v0.copy()
-            v0_dr = finiteDiff(self.v0,0,1,hR,1e-8) 
+            # Applying finite difference scheme to the value function
+            v0_dr = finiteDiff(self.v0,0,1,hR) 
             v0_df = finiteDiff(self.v0,1,1,hF)
             v0_dk = finiteDiff(self.v0,2,1,hK)
 
             v0_drr = finiteDiff(self.v0,0,2,hR)
+            v0_drr[v0_dr < 1e-16] = 0
+            v0_dr[v0_dr < 1e-16] = 1e-16
             v0_dff = finiteDiff(self.v0,1,2,hF)
             v0_dkk = finiteDiff(self.v0,2,2,hK)
             
-            if episode == 0:
+            if self.status == 0:
                 B1 = v0_dr - v0_df * np.exp(R_mat)
                 C1 = δ * κ
                 self.e = C1 / B1
                 e_hat = self.e
-                e_star = e_hat
+                # e_star = e_hat
 
-                Acoeff = np.exp(R_mat - K_mat)
-                Bcoeff = δ * (1-κ) / (np.exp(-R_mat + K_mat) * v0_dr * ψ0 * 0.5) + v0_dk * ϕ0 / (np.exp(-R_mat + K_mat) * v0_dr * ψ0 * 0.5)
+                self.i = (v0_dk * ϕ0 /(np.exp(-R_mat + K_mat) * v0_dr * ψ0 * 0.5)) * (self.j ** 0.5) - 1 / ϕ1
+                Acoeff = np.ones(R_mat.shape)
+                Bcoeff = ((δ * (1 - κ) * ϕ1 + ϕ0 * ϕ1 * v0_dk) * δ * (1 - κ) / (v0_dr * ψ0 * 0.5) * np.exp(0.5 * (R_mat - K_mat))) / (δ * (1 - κ) * ϕ1)
                 Ccoeff = -α  - 1 / ϕ1
                 self.j = ((-Bcoeff + np.sqrt(Bcoeff ** 2 - 4 * Acoeff * Ccoeff)) / (2 * Acoeff)) ** 2
-                self.i = (v0_dk * ϕ0 /(np.exp(-R_mat + K_mat) * v0_dr * ψ0 * 0.5)) * (self.j ** 0.5) - 1 / ϕ1
-                
+        #         i = (v0_dk * ϕ0 /(np.exp(-R_mat + K_mat) * v0_dr * ψ0 * 0.5)) * (j ** 0.5) - 1 / ϕ1
+                self.i = α - self.j - (δ * (1 - κ)) / (v0_dr * ψ0 * 0.5) * self.j ** 0.5 * np.exp(0.5 * (R_mat - K_mat))
+                self.q = δ * (1 - κ) / (α - self.i - self.j) 
             else:
                 e_hat = e_star
-                self.j  = ((α + 1 / ϕ1) * np.exp(-R_mat + K_mat) * (v0_dr * ψ0 * ψ1)/((v0_dr * ψ0 * ψ1) * self.j ** ψ1 + (δ * (1-κ) + v0_dk * ϕ0))) ** (1/(1-ψ1))
-                self.j = self.j * (v0_dr > 1e-8)
-                self.i = ((v0_dk * ϕ0 / (np.exp(-R_mat + K_mat) * v0_dr * ψ0 * ψ1)) * (self.j ** (1 - ψ1)) - 1 / ϕ1) * (v0_dr > 1e-8) + (v0_dr <= 1e-8) * (v0_dk * ϕ0 * α - δ * (1-κ) / ϕ1) / (δ * (1-κ) + v0_dk * ϕ0)
-
+                # Cobeweb scheme to update i and j; q is 
+                Converged = 0
+                nums = 0
+                q = self.q
+                while Converged == 0:
+                    i_star = (ϕ0 * ϕ1 * v0_dk / q - 1) / ϕ1
+                    j_star = (q * np.exp(ψ1 * (R_mat - K_mat)) / (v0_dr * ψ0 * ψ1)) ** (1 / (ψ1 - 1))
+                    if α > np.max(i_star + j_star):
+                        q_star = self.η * δ * (1 - κ) / (α - i_star - j_star) + (1 - self.η) * q
+                    else:
+                        q_star = 2 * q
+                    if np.max(abs(q - q_star) / self.η) <= 1e-5:
+                        Converged = 1
+                        q = q_star
+                        i = i_star
+                        j = j_star
+                    else:
+                        q = q_star
+                        i = i_star
+                        j = j_star
+                    
+                    nums += 1
+                print('Cobweb Passed, iterations: {}, i error: {:10f}, j error: {:10f}'.format(nums, np.max(i - i_star), np.max(j - j_star)))
+                self.q = q
+                self.i = i
+                self.j = j
 
             self.a_ = [] 
             self.b_ = [] 
@@ -2318,16 +2360,18 @@ class growthModel():
             RE_total = ξₚ * self.RE
 
             A = -δ * np.ones(R_mat.shape)
-            B_r = -e_star + ψ0 * (self.j ** ψ1) - 0.5 * (σ𝘳 ** 2)
+            # B_r = -e_star + ψ0 * (self.j ** ψ1) - 0.5 * (σ𝘳 ** 2)
+            B_r = -e_star + ψ0 * (self.j ** ψ1) * np.exp(ψ1 * (K_mat - R_mat)) - 0.5 * (σ𝘳 ** 2)
             B_k = μ̄ₖ + ϕ0 * np.log(1 + self.i * ϕ1) - 0.5 * (σ𝘬 ** 2)
             B_f = e_star * np.exp(R_mat)
             C_rr = 0.5 * σ𝘳 ** 2 * np.ones(R_mat.shape)
             C_kk = 0.5 * σ𝘬 ** 2 * np.ones(R_mat.shape)
             C_ff = np.zeros(R_mat.shape)
 
-            D = δ * κ * np.log(e_star) + δ * κ * R_mat + δ * (1 - κ) * (np.log(α - self.i - self.j * np.exp(R_mat - K_mat)) + K_mat) + I_term #  + drift_distort + RE_total
-            
-            out = self.__PDESolver__(A, B_r, B_f, B_k, C_rr, C_ff, C_kk, D, 'False Trasient')
+            # D = δ * κ * np.log(e_star) + δ * κ * R_mat + δ * (1 - κ) * (np.log(α - self.i - self.j * np.exp(R_mat - K_mat)) + K_mat) + I_term #  + drift_distort + RE_total
+            D = δ * κ * np.log(e_star) + δ * κ * R_mat + δ * (1 - κ) * (np.log(α - self.i - self.j) + K_mat)  + I_term #  + drift_distort + RE_total
+
+            out = self.__PDESolver__(A, B_r, B_f, B_k, C_rr, C_ff, C_kk, D, self.v0, self.ε, 'False Transient')
 
             out_comp = out[2].reshape(self.v0.shape,order = "F")
             PDE_rhs = A * self.v0 + B_r * v0_dr + B_f * v0_df + B_k * v0_dk + C_rr * v0_drr + C_kk * v0_dkk + C_ff * v0_dff + D
@@ -2337,7 +2381,10 @@ class growthModel():
                 print("Episode {:d}: PDE Error: {:.10f}; False Transient Error: {:.10f}; Iterations: {:d}; CG Error: {:.10f}" .format(episode, PDE_Err, FC_Err, out[0], out[1]))
             episode += 1
             self.v0 = out_comp
+            if self.status == 0:
+                self.status = 1
 
+        self.status = 2
         print("Episode {:d}: PDE Error: {:.10f}; False Transient Error: {:.10f}; Iterations: {:d}; CG Error: {:.10f}" .format(episode, PDE_Err, FC_Err, out[0], out[1]))
         print("--- %s seconds ---" % (time.time() - start_time))
         
@@ -2452,7 +2499,7 @@ class growthModel():
             return res
 
         def muR(x):
-            return -e_func(x) + ψ0 * j_func(x) ** ψ1
+            return -e_func(x) + ψ0 * (j_func(x) * x[1] / x[0])** ψ1
         def muK_tilted(x): 
             return (μ̄k + ϕ0 * np.log(1 + i_func(x) * ϕ1)- Gamma_tilted(x))
         def muK_base(x): 
@@ -2512,9 +2559,9 @@ class growthModel():
             for tm in range(1,pers):
                 shock = norm.rvs(0,np.sqrt(dt),nDims)
                 hist[tm,0] = cap(hist[tm-1,0] * np.exp((muR(hist[tm-1,:])- 0.5 * sum((sigmaR(hist[tm-1,:])) ** 2))* dt + sigmaR(hist[tm-1,:]).dot(shock)),lowerbounds[0], upperbounds[0])
-                hist[tm,1] = cap(hist[tm-1,1] * np.exp((muK_tilted(hist[tm-1,:])- 0.5 * sum((sigmaK(hist[tm-1,:])) ** 2))* dt + sigmaK(hist[tm-1,:]).dot(shock)),lowerbounds[1], upperbounds[1])
+                hist[tm,1] = cap(hist[tm-1,1] * np.exp((muK_base(hist[tm-1,:])- 0.5 * sum((sigmaK(hist[tm-1,:])) ** 2))* dt + sigmaK(hist[tm-1,:]).dot(shock)),lowerbounds[1], upperbounds[1])
                 hist[tm,2] = cap(hist[tm-1,2] + muF(hist[tm-1,:]) * dt + sigmaF(hist[tm-1,:]).dot(shock), lowerbounds[2], upperbounds[2])
-                hist[tm,3] = cap(hist[tm-1,3] * np.exp((muK_base(hist[tm-1,:])- 0.5 * sum((sigmaK(hist[tm-1,:])) ** 2))* dt + sigmaK(hist[tm-1,:]).dot(shock)),lowerbounds[3], upperbounds[3])
+                hist[tm,3] = cap(hist[tm-1,3] * np.exp((muK_tilted(hist[tm-1,:])- 0.5 * sum((sigmaK(hist[tm-1,:])) ** 2))* dt + sigmaK(hist[tm-1,:]).dot(shock)),lowerbounds[3], upperbounds[3])
                 
                 e_hist[tm] = e_func(hist[tm-1,:]) * hist[tm-1,0]
                 i_hist[tm] = i_func(hist[tm-1,:]) * hist[tm-1,1]
@@ -2534,7 +2581,7 @@ class growthModel():
             for ite in range(len(self.π̃_norm_)):
                 self.pi_tilde_hists[ite][:,[iters]] = pi_tilde_hist[ite]
 
-    def SCCDecompose(self, method = 'Linear'):
+    def SCCDecompose(self, method = 'Linear', initial_guess = None):
         gridpoints = (self.R, self.F, self.K)
         T = 100
         pers = 4 * T
@@ -2567,10 +2614,19 @@ class growthModel():
         hR = self.hR
         hF = self.hF
         hK = self.hK
-        v0_dr = finiteDiff(self.v0,0,1,hR,1e-8) 
+
+        # load smart guesses
+        if initial_guess is not None:
+            print(initial_guess)
+            smart_guess = pickle.load(open('./data/{}.pickle'.format(initial_guess), 'rb', -1))
+            v0_base = smart_guess['base']
+            v0_worst = smart_guess['worst']
+
+        # Applying finite difference scheme to the value function
+        v0_dr = finiteDiff(self.v0,0,1,hR) 
+        v0_dr[v0_dr < 1e-16] = 1e-16
         v0_df = finiteDiff(self.v0,1,1,hF)
         v0_dk = finiteDiff(self.v0,2,1,hK)
-
 
         a, b, c, dmg_ = ([] for ite in range(4)) 
         for ite in range(len(self.π̃_norm_)):
@@ -2591,7 +2647,7 @@ class growthModel():
         Gamma_base = sum(w * d for w, d in zip(self.weight, dmg_))
 
         A = -δ * np.ones(R_mat.shape)
-        B_r = -self.e + ψ0 * (self.j ** ψ1) - 0.5 * (σ𝘳 ** 2)
+        B_r = -self.e + ψ0 * (self.j ** ψ1) * np.exp(ψ1 * (K_mat - R_mat)) - 0.5 * (σ𝘳 ** 2)
         B_k = μ̄ₖ + ϕ0 * np.log(1 + self.i * ϕ1) - 0.5 * (σ𝘬 ** 2) - Gamma_base
         B_f = self.e * np.exp(R_mat)
         C_rr = 0.5 * σ𝘳 ** 2 * np.ones(R_mat.shape)
@@ -2599,11 +2655,11 @@ class growthModel():
         C_ff = np.zeros(R_mat.shape)
         D = flow_base
 
-        out = self.__PDESolver__(A, B_r, B_f, B_k, C_rr, C_ff, C_kk, D, 'Feyman Kac')
+        out = self.__PDESolver__(A, B_r, B_f, B_k, C_rr, C_ff, C_kk, D, v0_base, solverType = 'Feyman Kac')
         v0_base = out[2].reshape(self.v0.shape, order="F")
         self.v0_base = v0_base
 
-        v0_dr_base = finiteDiff(v0_base,0,1,hR,1e-8) 
+        v0_dr_base = finiteDiff(v0_base,0,1,hR) 
         v0_df_base = finiteDiff(v0_base,1,1,hF)
         v0_dk_base = finiteDiff(v0_base,2,1,hK)
 
@@ -2611,10 +2667,12 @@ class growthModel():
         v0_dff_base = finiteDiff(v0_base,1,2,hF)
         v0_dkk_base = finiteDiff(v0_base,2,2,hK)
 
+        v0_drr_base[v0_dr_base < 1e-16] = 0
+        v0_dr_base[v0_dr_base < 1e-16] = 1e-16
 
         PDE_rhs = A * v0_base + B_r * v0_dr_base + B_f * v0_df_base + B_k * v0_dk_base + C_rr * v0_drr_base + C_kk * v0_dkk_base + C_ff * v0_dff_base + D
         PDE_Err = np.max(abs(PDE_rhs))
-        print("Feyman Kac Base Model Solved. PDE Error: %f; Iterations: %d; CG Error: %f" %(PDE_Err, out[0], out[1]))
+        print("Feyman Kac Base Model Solved. PDE Error: {:.10f}; Iterations: {:d}; CG Error: {:.10f}".format(PDE_Err, out[0], out[1]))
 
         a, b, c, dmg_tilt_ = ([] for ite in range(4)) 
         for ite in range(len(self.π̃_norm_)):
@@ -2635,7 +2693,7 @@ class growthModel():
         Gamma_tilted = sum(w * d for w, d in zip(self.π̃_norm_, dmg_tilt_))
 
         A = -δ * np.ones(R_mat.shape)
-        B_r = -self.e + ψ0 * (self.j ** ψ1) - 0.5 * (σ𝘳 ** 2)
+        B_r = -self.e + ψ0 * (self.j ** ψ1) * np.exp(ψ1 * (K_mat - R_mat)) - 0.5 * (σ𝘳 ** 2)
         B_k = μ̄ₖ + ϕ0 * np.log(1 + self.i * ϕ1) - 0.5 * (σ𝘬 ** 2) - Gamma_tilted
         B_f = self.e * np.exp(R_mat)
         C_rr = 0.5 * σ𝘳 ** 2 * np.ones(R_mat.shape)
@@ -2643,11 +2701,11 @@ class growthModel():
         C_ff = np.zeros(R_mat.shape)
         D = flow_tilted
 
-        out = self.__PDESolver__(A, B_r, B_f, B_k, C_rr, C_ff, C_kk, D, 'Feyman Kac')
+        out = self.__PDESolver__(A, B_r, B_f, B_k, C_rr, C_ff, C_kk, D, v0_worst, solverType = 'Feyman Kac')
         v0_worst = out[2].reshape(self.v0.shape, order="F")
         self.v0_worst = v0_worst
 
-        v0_dr_worst = finiteDiff(v0_worst,0,1,hR,1e-8) 
+        v0_dr_worst = finiteDiff(v0_worst,0,1,hR) 
         v0_df_worst = finiteDiff(v0_worst,1,1,hF)
         v0_dk_worst = finiteDiff(v0_worst,2,1,hK)
 
@@ -2655,41 +2713,44 @@ class growthModel():
         v0_dff_worst = finiteDiff(v0_worst,1,2,hF)
         v0_dkk_worst = finiteDiff(v0_worst,2,2,hK)
 
+        v0_drr_worst[v0_dr_worst < 1e-16] = 0
+        v0_dr_worst[v0_dr_worst < 1e-16] = 1e-16
+
         PDE_rhs = A * v0_worst + B_r * v0_dr_worst + B_f * v0_df_worst + B_k * v0_dk_worst + C_rr * v0_drr_worst + C_kk * v0_dkk_worst + C_ff * v0_dff_worst + D
         PDE_Err = np.max(abs(PDE_rhs))
-        print("Feyman Kac Worst Case Model Solved. PDE Error: %f; Iterations: %d; CG Error: %f" %(PDE_Err, out[0], out[1]))
+        print("Feyman Kac Worst Model Solved. PDE Error: {:.10f}; Iterations: {:d}; CG Error: {:.10f}".format(PDE_Err, out[0], out[1]))
 
-        MC = δ * (1-κ) / (α * np.exp(K_mat) - self.i * np.exp(K_mat) - self.j * np.exp(R_mat))
+        MC = δ * (1-κ) / (α * np.exp(K_mat) - self.i * np.exp(K_mat) - self.j * np.exp(K_mat))
         ME = δ * κ / (self.e * np.exp(R_mat))
         SCC = 1000 * ME / MC
         SCC_func_r = GridInterp(gridpoints, SCC, method)
 
         def SCC_func(x): 
-            return SCC_func_r.get_value(np.log(x[0]), x[2], np.log(x[3]))
+            return SCC_func_r.get_value(np.log(x[0]), x[2], np.log(x[1]))
 
         ME1 = v0_dr * np.exp(-R_mat)
         SCC1 = 1000 * ME1 / MC
         SCC1_func_r = GridInterp(gridpoints, SCC1, 'Linear')
         def SCC1_func(x):
-            return SCC1_func_r.get_value(np.log(x[0]), x[2], np.log(x[3]))
+            return SCC1_func_r.get_value(np.log(x[0]), x[2], np.log(x[1]))
 
         ME2_base = v0_base
         SCC2_base = 1000 * ME2_base / MC
         SCC2_base_func_r = GridInterp(gridpoints, SCC2_base, method)
         def SCC2_base_func(x):
-            return SCC2_base_func_r.get_value(np.log(x[0]), x[2], np.log(x[3]))
+            return SCC2_base_func_r.get_value(np.log(x[0]), x[2], np.log(x[1]))
 
         ME2_base_a = -v0_df
         SCC2_base_a = 1000 * ME2_base_a / MC
         SCC2_base_a_func_r = GridInterp(gridpoints, SCC2_base_a, method)
         def SCC2_base_a_func(x):
-            return SCC2_base_a_func_r.get_value(np.log(x[0]), x[2], np.log(x[3]))
+            return SCC2_base_a_func_r.get_value(np.log(x[0]), x[2], np.log(x[1]))
 
         ME2_tilt = v0_worst
         SCC2_tilt = 1000 * ME2_tilt / MC
         SCC2_tilt_func_r = GridInterp(gridpoints, SCC2_tilt, method)
         def SCC2_tilt_func(x):
-            return SCC2_tilt_func_r.get_value(np.log(x[0]), x[2], np.log(x[3]))
+            return SCC2_tilt_func_r.get_value(np.log(x[0]), x[2], np.log(x[1]))
 
         SCC_values = np.zeros([pers,its])
         SCC1_values = np.zeros([pers,its])
@@ -2698,7 +2759,7 @@ class growthModel():
         SCC2_base_a_values = np.zeros([pers,its])
 
         for tm in range(pers):
-            for path in range(its):   # path is its?
+            for path in range(its):
                 SCC_values[tm, path] = SCC_func(self.hists[tm,:,path])
                 SCC1_values[tm, path] = SCC1_func(self.hists[tm,:,path])
                 SCC2_base_values[tm, path] = SCC2_base_func(self.hists[tm,:,path]) 
@@ -3370,8 +3431,10 @@ if __name__ == "__main__":
     print('------Model Solutions------')
     m = modelSolutions()
     m.solveProblem()
-    # m.solvexiModels()
-    m.densityIntPlot()
+    # # m.solvexiModels()
+    # m.densityIntPlot()
+    print('------Growth------')
+    m.solveGrowth()
     # print("-----------Preference-------------------")
     # m = preferenceModel()
     # m.solveHJB('Weighted', 'WeightedAverse')

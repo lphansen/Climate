@@ -1,4 +1,16 @@
 import numpy as np
+import pandas as pd
+from scipy.io import loadmat
+from scipy.stats import norm
+import pdb
+import warnings
+import time
+from scipy.interpolate import RegularGridInterpolator, CubicSpline
+from plotly.subplots import make_subplots
+import plotly.graph_objs as go
+from plotly.offline import init_notebook_mode, iplot
+import pickle
+import SolveLinSys
 
 def finiteDiff(data, dim, order, dlt, cap = None):  
 # compute the central difference derivatives for given input and dimensions
@@ -163,3 +175,192 @@ def cap(x, lb, ub):
             return ub
         else:
             return lb
+
+
+def PDESolver(stateSpace, A, B_r, B_f, B_k, C_rr, C_ff, C_kk, D, v0, ε = 1, solverType = 'False Transient'):
+
+    if solverType == 'False Transient':
+        A = A.reshape(-1,1,order = 'F')
+        B = np.hstack([B_r.reshape(-1,1,order = 'F'),B_f.reshape(-1,1,order = 'F'),B_k.reshape(-1,1,order = 'F')])
+        C = np.hstack([C_rr.reshape(-1,1,order = 'F'), C_ff.reshape(-1,1,order = 'F'), C_kk.reshape(-1,1,order = 'F')])
+        D = D.reshape(-1,1,order = 'F')
+        v0 = v0.reshape(-1,1,order = 'F')
+        v1 = v0.reshape(-1,1,order = 'F')
+#         out = SolveLinSys1.solve(stateSpace, A, B, C, D, v0, ε)
+        out = SolveLinSys.solveFT(stateSpace, A, B, C, D, v0, ε)
+
+        return out
+
+    elif solverType == 'Feyman Kac':
+        
+        A = A.reshape(-1, 1, order='F')
+        B = np.hstack([B_r.reshape(-1, 1, order='F'), B_f.reshape(-1, 1, order='F'), B_k.reshape(-1, 1, order='F')])
+        C = np.hstack([C_rr.reshape(-1, 1, order='F'), C_ff.reshape(-1, 1, order='F'), C_kk.reshape(-1, 1, order='F')])
+        D = D.reshape(-1, 1, order='F')
+        v0 = v0.reshape(-1, 1, order='F')
+#         out = SolveLinSys2.solve(stateSpace, A, B, C, D, v0)
+        out = SolveLinSys.solveFK(stateSpace, A, B, C, D, v0)
+
+        return out
+
+def densityPlot(key = 'Weighted'):
+    years = [50, 75, 100]
+
+    titles = ["Year {}".format(year) for year in years]
+
+    fig = make_subplots(1, len(years), print_grid = False, subplot_titles = titles)
+
+    dom =beta_f_space
+    inds = ((dom>=0) & (dom<=5e-3))
+
+    for i, year in enumerate(years):
+        # data = loadmat("{}/50-50 weight/Dist_{}yr.mat".format(quad_rule, year))
+        data = Dists
+        if key == 'Weighted': 
+            if i == 0:
+                fig.add_scatter(x = dom[inds] * 1000, y = data['Original'][inds], row = 1, col = i + 1,
+                    name = 'Original Distribution', line = dict(color = '#1f77b4', width = 3), showlegend = True, legendgroup = 'Original Distribution')
+                fig.add_scatter(x = dom[inds] * 1000, y = data['Nordhaus_year' + str(year)][inds], row = 1, col = i + 1,
+                    name = 'Low Damage Function', line = dict(color = 'red', dash='dashdot', width = 3), showlegend = True, legendgroup = 'Low Damage Function')
+                fig.add_scatter(x = dom[inds] * 1000, y = data['Weitzman_year' + str(year)][inds], row = 1, col = i + 1,
+                    name = 'High Damage Function', line = dict(color = 'green', dash='dash', width = 3), showlegend = True, legendgroup = 'High Damage Function')
+            else:
+                fig.add_scatter(x = dom[inds] * 1000, y = data['Original'][inds], row = 1, col = i + 1,
+                    name = 'Original Distribution', line = dict(color = '#1f77b4', width = 3), showlegend = False, legendgroup = 'Original Distribution')
+                fig.add_scatter(x = dom[inds] * 1000, y = data['Nordhaus_year' + str(year)][inds], row = 1, col = i + 1,
+                    name = 'Low Damage Function', line = dict(color = 'red', dash='dashdot', width = 3), showlegend = False, legendgroup = 'Low Damage Function')
+                fig.add_scatter(x = dom[inds] * 1000, y = data['Weitzman_year' + str(year)][inds], row = 1, col = i + 1,
+                    name = 'High Damage Function', line = dict(color = 'green', dash='dash', width = 3), showlegend = False, legendgroup = 'High Damage Function')
+
+        elif key == 'High':
+            if i == 0:
+                fig.add_scatter(x = dom[inds] * 1000, y = data['Original'][inds], row = 1, col = i + 1,
+                    name = 'Original Distribution', line = dict(color = '#1f77b4', width = 3), showlegend = True, legendgroup = 'Original Distribution')
+                fig.add_scatter(x = dom[inds] * 1000, y = data['Weitzman_year' + str(year)][inds], row = 1, col = i + 1,
+                    name = 'High Damage Function', line = dict(color = 'green', dash='dash', width = 3), showlegend = True, legendgroup = 'High Damage Function')
+            else:
+                fig.add_scatter(x = dom[inds] * 1000, y = data['Original'][inds], row = 1, col = i + 1,
+                    name = 'Original Distribution', line = dict(color = '#1f77b4', width = 3), showlegend = False, legendgroup = 'Original Distribution')
+                fig.add_scatter(x = dom[inds] * 1000, y = data['Weitzman_year' + str(year)][inds], row = 1, col = i + 1,
+                    name = 'High Damage Function', line = dict(color = 'green', dash='dash', width = 3), showlegend = False, legendgroup = 'High Damage Function')
+
+
+        elif key == 'Low':
+            if i == 0:
+                fig.add_scatter(x = dom[inds] * 1000, y = data['Original'][inds], row = 1, col = i + 1,
+                    name = 'Original Distribution', line = dict(color = '#1f77b4', width = 3), showlegend = True, legendgroup = 'Original Distribution')
+                fig.add_scatter(x = dom[inds] * 1000, y = data['Nordhaus_year' + str(year)][inds], row = 1, col = i + 1,
+                    name = 'Low Damage Function', line = dict(color = 'red', dash='dashdot', width = 3), showlegend = True, legendgroup = 'Low Damage Function')
+            else:
+                fig.add_scatter(x = dom[inds] * 1000, y = data['Original'][inds], row = 1, col = i + 1,
+                    name = 'Original Distribution', line = dict(color = '#1f77b4', width = 3), showlegend = False, legendgroup = 'Original Distribution')
+                fig.add_scatter(x = dom[inds] * 1000, y = data['Nordhaus_year' + str(year)][inds], row = 1, col = i + 1,
+                    name = 'Low Damage Function', line = dict(color = 'red', dash='dashdot', width = 3), showlegend = False, legendgroup = 'Low Damage Function')
+
+    fig['layout'].update(title = key + " Damage Specification", showlegend = True, titlefont = dict(size = 20), height = 400)
+
+    for i in range(len(years)):
+
+        fig['layout']['yaxis{}'.format(i+1)].update(showgrid = False)
+        fig['layout']['xaxis{}'.format(i+1)].update(showgrid = False)
+
+    fig['layout']['yaxis1'].update(title=go.layout.yaxis.Title(
+                                    text="Probability Density", font=dict(size=16)))
+    fig['layout']['xaxis2'].update(title=go.layout.xaxis.Title(
+                                    text="Climate Sensitivity", font=dict(size=16)), showgrid = False)
+
+    fig = go.FigureWidget(fig)
+    iplot(fig)
+
+def SCCDecomposePlot(key = 'Weighted'):
+
+    if key == 'Low':
+
+        data = SCCs
+        x1, y1, x2, y2, x3, y3 = 60, 195, 93, 330, 96, 100
+
+    elif key == 'Weighted':
+
+        data = SCCs
+        x1, y1, x2, y2, x3, y3 = 60, 320, 80, 315, 90, 350
+
+    elif key == 'High':
+
+        data = SCCs
+        x1, y1, x2, y2, x3, y3 = 60, 340, 93, 495, 96, 430
+
+
+    total_SCC = np.array(data['SCC'])
+    external_SCC = np.array(data['SCC2'])
+    uncertainty_SCC = np.array(data['SCC3'])
+    private_SCC = np.array(data['SCC1'])
+    x = np.linspace(0,100,400)
+
+    total = go.Scatter(x = x, y = total_SCC,
+                   name = 'Total', line = dict(color = '#1f77b4', dash = 'solid', width = 3),\
+                       showlegend = False)
+    external = go.Scatter(x = x, y = external_SCC,
+                   name = 'Ambiguity', line = dict(color = 'red', dash = 'dot', width = 3),\
+                          showlegend = False)
+    uncertainty = go.Scatter(x = x, y = uncertainty_SCC,
+                   name = 'No Ambiguity', line = dict(color = 'green', dash = 'dashdot', width = 3),\
+                             showlegend = False)
+    private = go.Scatter(x = x, y = private_SCC,
+                   name = 'Private', line = dict(color = 'black', width = 3),\
+                         showlegend = False)
+
+    annotations=[dict(x=x1, y=y1, text="Total", textangle=0, ax=-100,
+                ay=-75, font=dict(color="black", size=12), arrowcolor="black",
+                arrowsize=3, arrowwidth=1, arrowhead=1),
+
+                dict(x=x2, y=y2, text="Ambiguity", textangle=0, ax=-100,
+                ay=0, font=dict(color="black", size=12), arrowcolor="black",
+                arrowsize=3, arrowwidth=1, arrowhead=1),
+
+                dict(x=x3, y=y3, text="No Ambiguity", textangle=0, ax=-80,
+                ay=80, font=dict(color="black", size=12), arrowcolor="black",
+                arrowsize=3, arrowwidth=1, arrowhead=1)]
+
+    layout = dict(title = 'Social Cost of Carbon, {} Damage Specification'.format(key),
+                  titlefont = dict(size = 20),
+                  xaxis = go.layout.XAxis(title=go.layout.xaxis.Title(
+                                    text='Years', font=dict(size=16)),
+                                         tickfont=dict(size=12), showgrid = False),
+                  yaxis = go.layout.YAxis(title=go.layout.yaxis.Title(
+                                    text='Dollars per Ton of Carbon', font=dict(size=16)),
+                                         tickfont=dict(size=12), showgrid = False), 
+                  annotations=annotations
+                  )
+
+    fig = dict(data = [total, external, uncertainty], layout = layout)
+    iplot(fig)
+    
+def emissionPlot(damageSpec, ξ):
+
+    colors = {'High': 'red', 'Low': 'green', 'Weighted': '#1f77b4'}
+    lines = {'Averse': 'solid', "Neutral": 'dashdot'}
+
+    # damageSpecs = ['High', 'Low', 'Weighted']
+    # aversionSpecs = ['Averse', 'Neutral']
+    # colors = ['green', '#1f77b4', 'red']
+    # lines = ['solid', 'dashdot'] 
+
+    x = np.linspace(0, 100, 400)
+    data = []
+
+    data.append(go.Scatter(x = x, y = e_hists[:,0], name = damageSpec +  ' Damage w/ ξ= {}'.format(ξ),
+        line = dict(width = 2, dash = 'solid', color = colors[damageSpec]), showlegend = True))
+
+    layout = dict(title = 'Emissions Plot with {} Damage Setting, ξ = {}'.format(damageSpec, ξ),
+      titlefont = dict(size = 20),
+      xaxis = go.layout.XAxis(title=go.layout.xaxis.Title(
+                        text='Years', font=dict(size=16)),
+                             tickfont=dict(size=12), showgrid = False, showline = True),
+      yaxis = go.layout.YAxis(title=go.layout.yaxis.Title(
+                        text='Gigatons of Carbon', font=dict(size=16)),
+                             tickfont=dict(size=12), showgrid = False),
+      legend = dict(orientation = 'h', y = 1.15)
+      )
+
+    fig = dict(data = data, layout = layout)
+    iplot(fig)
