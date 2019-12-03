@@ -203,9 +203,9 @@ class modelSolutions():
             key = 'HighAverse'
             print('-------' + key + '-------')
             self.models[key] = preferenceModel(self.prefParams, self.prefSpecs)
-            self.models[key].solveHJB('High', initial_guess = key)
+            self.models[key].solveHJB('High', initial_guess = key + 'guess')
             self.models[key].Simulate(self.method)
-            self.models[key].SCCDecompose(AmbiguityNeutral = False, method = self.method, initial_guess = key)
+            self.models[key].SCCDecompose(AmbiguityNeutral = False, method = self.method, initial_guess = key + 'guess')
             self.models[key].computeProbs(damageSpec = 'High', method = self.method)
 
             with open('./data/HighAverse.pickle', "wb") as file_:
@@ -218,9 +218,9 @@ class modelSolutions():
             key = 'HighNeutral'
             print('-------' + key + '-------')
             self.models[key] = preferenceModel(self.prefParams, self.prefSpecs)
-            self.models[key].solveHJB('High', initial_guess = key)
+            self.models[key].solveHJB('High', initial_guess = key + 'guess')
             self.models[key].Simulate(self.method)
-            self.models[key].SCCDecompose(AmbiguityNeutral = True, method = self.method, initial_guess = key)
+            self.models[key].SCCDecompose(AmbiguityNeutral = True, method = self.method)
             with open('./data/HighNeutral.pickle', "wb") as file_:
                 pickle.dump(self.models['HighNeutral'], file_, -1)
 
@@ -232,9 +232,9 @@ class modelSolutions():
             key = 'LowAverse'
             print('-------' + key + '-------')
             self.models[key] = preferenceModel(self.prefParams, self.prefSpecs)
-            self.models[key].solveHJB('Low', initial_guess = key)
+            self.models[key].solveHJB('Low', initial_guess = key + 'guess')
             self.models[key].Simulate(self.method)
-            self.models[key].SCCDecompose(AmbiguityNeutral = False, method = self.method, initial_guess = key)
+            self.models[key].SCCDecompose(AmbiguityNeutral = False, method = self.method, initial_guess = key + 'guess')
             self.models[key].computeProbs(damageSpec = 'Low', method = self.method)
 
             with open('./data/LowAverse.pickle', "wb") as file_:
@@ -248,9 +248,9 @@ class modelSolutions():
             key = 'LowNeutral'
             print('-------' + key + '-------')
             self.models[key] = preferenceModel(self.prefParams, self.prefSpecs)
-            self.models[key].solveHJB('Low', initial_guess = key)
+            self.models[key].solveHJB('Low', initial_guess = key + 'guess')
             self.models[key].Simulate(self.method)
-            self.models[key].SCCDecompose(AmbiguityNeutral = True, method = self.method, initial_guess = key)
+            self.models[key].SCCDecompose(AmbiguityNeutral = True, method = self.method)
 
             with open('./data/LowNeutral.pickle', "wb") as file_:
                 pickle.dump(self.models['LowNeutral'], file_, -1)
@@ -263,9 +263,9 @@ class modelSolutions():
             key = 'WeightedAverse'
             print('-------' + key + '-------')
             self.models[key] = preferenceModel(self.prefParams, self.prefSpecs)
-            self.models[key].solveHJB('Weighted', initial_guess = key)
+            self.models[key].solveHJB('Weighted', initial_guess = key + 'guess')
             self.models[key].Simulate(self.method)
-            self.models[key].SCCDecompose(AmbiguityNeutral = False, method = self.method, initial_guess = key)
+            self.models[key].SCCDecompose(AmbiguityNeutral = False, method = self.method, initial_guess = key + 'guess')
             self.models[key].computeProbs(damageSpec = 'Weighted', method = self.method)
             with open('./data/WeightedAverse.pickle', "wb") as file_:
                 pickle.dump(self.models['WeightedAverse'], file_, -1)
@@ -277,9 +277,9 @@ class modelSolutions():
             key = 'WeightedNeutral'
             print('-------' + key + '-------')
             self.models[key] = preferenceModel(self.prefParams, self.prefSpecs)
-            self.models[key].solveHJB('Weighted', initial_guess = key)
+            self.models[key].solveHJB('Weighted', initial_guess = key + 'guess')
             self.models[key].Simulate(self.method)
-            self.models[key].SCCDecompose(AmbiguityNeutral = False, method = self.method, initial_guess = key)
+            self.models[key].SCCDecompose(AmbiguityNeutral = True, method = self.method)
             with open('./data/WeightedNeutral.pickle', "wb") as file_:
                 pickle.dump(self.models['WeightedNeutral'], file_, -1)
 
@@ -401,26 +401,91 @@ class modelSolutions():
                     self.xiModels[ξ].Simulate(method = self.method)
                     self.xiModels[ξ].SCCDecompose(AmbiguityNeutral = False, method = self.method)
         else:
-            for ξ in xiList:
-                if ξ == 1 / 0.001:
+                # if ξ == 1 / 0.001:
 
-                    self.xiModels[ξ] = self.models['WeightedNeutral']
+                #     self.xiModels[ξ] = self.models['WeightedNeutral']
 
-                elif ξ == 1 / 4000:
+                # elif ξ == 1 / 4000:
 
-                    self.xiModels[ξ] = self.models['WeightedAverse']
+                #     self.xiModels[ξ] = self.models['WeightedAverse']
 
+                # else:
+            xiList_m = np.array(xiList)
+            averse_list = sorted(xiList_m[xiList_m < 1])
+            neutral_list = sorted(xiList_m[xiList_m >= 1], reverse = True)
+            for i, avs_xi in enumerate(averse_list):
+                print('-----------------------{:4f}---------------------------'.format(avs_xi))
+                if i == 0:
+                    if avs_xi == 1 / 4000:
+                        self.xiModels[avs_xi] = self.models['WeightedAverse']
+                        smartguess = {}
+                        smartguess['v0'] = self.xiModels[avs_xi].v0
+                        smartguess['q'] = self.xiModels[avs_xi].q
+                        smartguess['e'] = self.xiModels[avs_xi].e
+                        smartguess['base'] = self.xiModels[avs_xi].v0_base
+                        smartguess['worst'] = self.xiModels[avs_xi].v0_worst
+
+                        with open('./data/{}.pickle'.format('xi_smartguess'), "wb") as file_:
+                            pickle.dump(smartguess, file_, -1)
+
+                    else:
+                        print('Error: no starting models.')
                 else:
-                    xiList_m = np.array(xiList)
-                    averse_list = sorted(xiList_m[xiList_m < 1])
-                    neutral_list = sorted(xiList_m[xiList_m >= 1], reverse = True)
 
-                    
-                    self.prefParams['ξₚ'] = ξ
-                    self.xiModels[ξ] = preferenceModel(self.prefParams, self.prefSpecs)
-                    self.xiModels[ξ].solveHJB(key)
-                    self.xiModels[ξ].Simulate(self.method)
-                    self.xiModels[ξ].SCCDecompose(AmbiguityNeutral = False, method = self.method)
+                    self.prefParams['ξₚ'] = avs_xi
+                    self.xiModels[avs_xi] = preferenceModel(self.prefParams, self.prefSpecs)
+                    self.xiModels[avs_xi].solveHJB(key, initial_guess = 'xi_smartguess')
+                    self.xiModels[avs_xi].Simulate(self.method)
+                    self.xiModels[avs_xi].SCCDecompose(AmbiguityNeutral = False, method = self.method, initial_guess = 'xi_smartguess')
+
+                    smartguess = {}
+                    smartguess['v0'] = self.xiModels[avs_xi].v0
+                    smartguess['q'] = self.xiModels[avs_xi].q
+                    smartguess['e'] = self.xiModels[avs_xi].e
+                    smartguess['base'] = self.xiModels[avs_xi].v0_base
+                    smartguess['worst'] = self.xiModels[avs_xi].v0_worst
+
+                    with open('./data/{}.pickle'.format('xi_smartguess'), "wb") as file_:
+                        pickle.dump(smartguess, file_, -1)
+            
+            for i, neu_xi in enumerate(neutral_list):
+                print('-----------------------{:4f}---------------------------'.format(neu_xi))
+
+                if i == 0:
+                    if neu_xi == 1 / 4000:
+                        self.xiModels[neu_xi] = self.models['WeightedNeutral']
+                        smartguess = {}
+                        smartguess['v0'] = self.xiModels[neu_xi].v0
+                        smartguess['q'] = self.xiModels[neu_xi].q
+                        smartguess['e'] = self.xiModels[neu_xi].e
+                        smartguess['base'] = None
+                        smartguess['worst'] = None
+
+                        with open('./data/{}.pickle'.format('xi_smartguess'), "wb") as file_:
+                            pickle.dump(smartguess, file_, -1)
+
+                    else:
+                        print('Error: no starting models.')
+                else:
+
+                    self.prefParams['ξₚ'] = neu_xi
+                    self.xiModels[neu_xi] = preferenceModel(self.prefParams, self.prefSpecs)
+                    self.xiModels[neu_xi].solveHJB(key, initial_guess = 'xi_smartguess')
+                    self.xiModels[neu_xi].Simulate(self.method)
+                    self.xiModels[neu_xi].SCCDecompose(AmbiguityNeutral = True, method = self.method)
+
+                    smartguess = {}
+                    smartguess['v0'] = self.xiModels[neu_xi].v0
+                    smartguess['q'] = self.xiModels[neu_xi].q
+                    smartguess['e'] = self.xiModels[neu_xi].e
+                    smartguess['base'] = self.xiModels[neu_xi].v0_base
+                    smartguess['worst'] = self.xiModels[neu_xi].v0_worst
+
+                    with open('./data/{}.pickle'.format('xi_smartguess'), "wb") as file_:
+                        pickle.dump(smartguess, file_, -1)
+
+            with open('./data/{}.pickle'.format("ximodels"), "wb") as file_:
+                pickle.dump(self.xiModels, file_, -1)
 
         xiList = sorted(self.xiModels.keys())
         for ξ in xiList:
@@ -502,46 +567,39 @@ class modelSolutions():
 
     def densityIntPlot(self):
         fig = go.Figure()
-        years = np.arange(0,101,1)
-        dom = self.models[key + 'Averse'].beta_f_space
+        years = np.arange(1,101,1)
+        dom = self.models['WeightedAverse'].beta_f_space
         inds = ((dom>=0) & (dom<=5e-3))
         for y in years:
             data = self.models['WeightedAverse'].Dists
-            if y == 0：
+            if y == 1:
                 fig.add_scatter(x = dom[inds] * 1000, y = data['Original'][inds],
                     name = 'Original Distribution', line = dict(color = '#1f77b4', width = 3), showlegend = True, legendgroup = 'Original Distribution')
-                fig.add_scatter(x = dom[inds] * 1000, y = data['Nordhaus_year' + str(year)][inds],
-                    name = 'Low Damage Function', line = dict(color = 'red', dash='dashdot', width = 3), showlegend = True, legendgroup = 'Low Damage Function')
-                fig.add_scatter(x = dom[inds] * 1000, y = data['Weitzman_year' + str(year)][inds],
-                    name = 'High Damage Function', line = dict(color = 'green', dash='dash', width = 3), showlegend = True, legendgroup = 'High Damage Function')
+                fig.add_scatter(x = dom[inds] * 1000, y = data['Nordhaus_year' + str(y)][inds],
+                    name = 'Low Damage Function', line = dict(color = 'red', dash='dashdot', width = 3), showlegend = True, visible = False, legendgroup = 'Low Damage Function')
+                fig.add_scatter(x = dom[inds] * 1000, y = data['Weitzman_year' + str(y)][inds],
+                    name = 'High Damage Function', line = dict(color = 'green', dash='dash', width = 3), showlegend = True, visible = False, legendgroup = 'High Damage Function')
             else:
-                fig.add_scatter(x = dom[inds] * 1000, y = data['Nordhaus_year' + str(year)][inds],
-                    name = 'Low Damage Function', line = dict(color = 'red', dash='dashdot', width = 3), showlegend = False, legendgroup = 'Low Damage Function')
-                fig.add_scatter(x = dom[inds] * 1000, y = data['Weitzman_year' + str(year)][inds],
-                    name = 'High Damage Function', line = dict(color = 'green', dash='dash', width = 3), showlegend = False, legendgroup = 'High Damage Function')
-
-
-                fig['layout'].update(title = key + " Damage Specification", showlegend = True, titlefont = dict(size = 20), height = 600)
+                fig.add_scatter(x = dom[inds] * 1000, y = data['Nordhaus_year' + str(y)][inds],
+                    name = 'Low Damage Function', line = dict(color = 'red', dash='dashdot', width = 3), showlegend = True, visible = False, legendgroup = 'Low Damage Function')
+                fig.add_scatter(x = dom[inds] * 1000, y = data['Weitzman_year' + str(y)][inds],
+                    name = 'High Damage Function', line = dict(color = 'green', dash='dash', width = 3), showlegend = True, visible = False, legendgroup = 'High Damage Function')            
             
-            
-        fig['layout']['yaxis'].update(title=go.layout.yaxis.Title(
-                                        text="Probability Density", font=dict(size=16)))
-        fig['layout']['xaxis'].update(title=go.layout.xaxis.Title(
-                                        text="Climate Sensitivity", font=dict(size=16)), showgrid = False)
-
 
         fig.data[0].visible = True
+        fig.data[161].visible = True
+        fig.data[162].visible = True
 
         steps = []
-        for i in range(101):
+        for i in range(1,101):
             step = dict(
                 method = 'restyle',
                 args = ['visible', [False] * len(fig.data)],
                 label = 'Year ' + "{:d}".format(i)
                 )
             step['args'][1][0] = True
-            step['args'][1][i * 2 + 1] = True
-            step['args'][1][i * 2 + 1] = True
+            step['args'][1][i * 2 - 1] = True
+            step['args'][1][i * 2] = True
             # print(step['args'][1])
 
             steps.append(step)
@@ -553,13 +611,13 @@ class modelSolutions():
 
 
         # print(line_data)
-        fig.update_layout(title = 'Social Cost of Carbon Comparison',
+        fig.update_layout(title = 'Probability Density across Time',
                     titlefont = dict(size = 20),
                     xaxis = go.layout.XAxis(title=go.layout.xaxis.Title(
                                     text='Years', font=dict(size=16)),
                                             tickfont=dict(size=12), showgrid = False),
                     yaxis = go.layout.YAxis(title=go.layout.yaxis.Title(
-                                    text='Dollars per Ton of Carbon', font=dict(size=16)),
+                                    text='Climate Sensitivity', font=dict(size=16)),
                                             tickfont=dict(size=12), showgrid = False),
                     sliders = sliders
                     )
@@ -1172,7 +1230,7 @@ class preferenceModel():
             B = np.hstack([B_r.reshape(-1,1,order = 'F'),B_f.reshape(-1,1,order = 'F'),B_k.reshape(-1,1,order = 'F')])
             C = np.hstack([C_rr.reshape(-1,1,order = 'F'), C_ff.reshape(-1,1,order = 'F'), C_kk.reshape(-1,1,order = 'F')])
             D = D.reshape(-1,1,order = 'F')
-            v0 = self.v0.reshape(-1,1,order = 'F')
+            v0 = v0.reshape(-1,1,order = 'F')
             # v1 = v0
             out = SolveLinSys.solveFT(self.stateSpace, A, B, C, D, v0, ε)
             # print(np.max(abs(v1 - v0)))
@@ -1253,7 +1311,7 @@ class preferenceModel():
         out_comp = np.zeros(R_mat.shape)
         vold = self.v0.copy()
         if initial_guess is not None:
-            smart_guess = pickle.load(open('./data/smartguesses.pickle', 'rb', -1))[initial_guess]
+            smart_guess = pickle.load(open('./data/{}.pickle'.format(initial_guess), 'rb', -1))
 
             self.v0 = smart_guess['v0']
             self.q = smart_guess['q']
@@ -1637,12 +1695,6 @@ class preferenceModel():
         gridpoints = (self.R, self.F, self.K)
         pers = 400 # can modify
         its = 1
-
-        if initial_guess is not None:
-            smart_guess = pickle.load(open('./data/smartguesses.pickle', 'rb', -1))[initial_guess]
-            v0_base = smart_guess['base']
-            v0_worst = smart_guess['worst']
-
  
         if AmbiguityNeutral:
             α  = self.modelParams['α']
@@ -1667,6 +1719,13 @@ class preferenceModel():
             self.SCCs['SCC'] = SCC_total
 
         else:
+
+            # load smart guesses
+            if initial_guess is not None:
+                smart_guess = pickle.load(open('./data/{}.pickle'.format(initial_guess), 'rb', -1))
+                v0_base = smart_guess['base']
+                v0_worst = smart_guess['worst']
+
             δ  = self.modelParams['δ']
             κ  = self.modelParams['κ']
             σ𝘨 = self.modelParams['σ𝘨']
@@ -1963,7 +2022,7 @@ class preferenceModel():
         original_dist = norm.pdf(beta_f_space, β𝘧, np.sqrt(σᵦ))
         self.Dists['Original'] = original_dist
 
-        for tm in range(0, 404, 4):
+        for tm in range(4, 404, 4):
             R0 = self.hists[tm-1,0,0]
             K0 = self.hists[tm-1,1,0]
             F0 = self.hists[tm-1,2,0]
@@ -2129,7 +2188,7 @@ class growthModel():
         self.Dists = {}
         self.REs = {}
         
-    def __PDESolver__(self, A, B_r, B_f, B_k, C_rr, C_ff, C_kk, D, solverType):
+    def __PDESolver__(self, A, B_r, B_f, B_k, C_rr, C_ff, C_kk, D, v0, ε, solverType):
 
         if solverType == 'False Trasient':
 
@@ -2137,9 +2196,9 @@ class growthModel():
             B = np.hstack([B_r.reshape(-1,1,order = 'F'),B_f.reshape(-1,1,order = 'F'),B_k.reshape(-1,1,order = 'F')])
             C = np.hstack([C_rr.reshape(-1,1,order = 'F'), C_ff.reshape(-1,1,order = 'F'), C_kk.reshape(-1,1,order = 'F')])
             D = D.reshape(-1,1,order = 'F')
-            v0 = self.v0.reshape(-1,1,order = 'F')
+            v0 = v0.reshape(-1,1,order = 'F')
             # v1 = v0
-            out = SolveLinSys1.solvels(self.stateSpace, A, B, C, D, v0, self.ε)
+            out = SolveLinSys.solveFT(self.stateSpace, A, B, C, D, v0, ε)
             # print(np.max(abs(v1 - v0)))
             return out
 
@@ -2148,9 +2207,9 @@ class growthModel():
             B = np.hstack([B_r.reshape(-1, 1, order='F'), B_f.reshape(-1, 1, order='F'), B_k.reshape(-1, 1, order='F')])
             C = np.hstack([C_rr.reshape(-1, 1, order='F'), C_ff.reshape(-1, 1, order='F'), C_kk.reshape(-1, 1, order='F')])
             D = D.reshape(-1, 1, order='F')
-            v0 = self.v0.reshape(-1, 1, order='F') * 0
+            v0 = v0.reshape(-1, 1, order='F') 
             ε = 1.0
-            out = SolveLinSys2.solvels(self.stateSpace, A, B, C, D, v0, ε)
+            out = SolveLinSys.solveFK(self.stateSpace, A, B, C, D, v0)
             return out
 
         else:
@@ -2282,7 +2341,7 @@ class growthModel():
         print("Episode {:d}: PDE Error: {:.10f}; False Transient Error: {:.10f}; Iterations: {:d}; CG Error: {:.10f}" .format(episode, PDE_Err, FC_Err, out[0], out[1]))
         print("--- %s seconds ---" % (time.time() - start_time))
         
-    def Simulate(self, method = 'Spline'):
+    def Simulate(self, method = 'Linear'):
         T = 100
         pers = 4 * T
         dt = T / pers
@@ -2475,7 +2534,7 @@ class growthModel():
             for ite in range(len(self.π̃_norm_)):
                 self.pi_tilde_hists[ite][:,[iters]] = pi_tilde_hist[ite]
 
-    def SCCDecompose(self, method = 'Spline'):
+    def SCCDecompose(self, method = 'Linear'):
         gridpoints = (self.R, self.F, self.K)
         T = 100
         pers = 4 * T
@@ -2658,7 +2717,7 @@ class growthModel():
         self.SCCs['SCC2'] = SCC2_FK_base
         self.SCCs['SCC3'] = SCC2_FK_tilt - SCC2_FK_base
 
-    def computeProbs(self, method = 'Spline'):
+    def computeProbs(self, method = 'Linear'):
         # unpacking necessary variables
         
         β𝘧 = self.modelParams['β𝘧']
@@ -3311,6 +3370,8 @@ if __name__ == "__main__":
     print('------Model Solutions------')
     m = modelSolutions()
     m.solveProblem()
+    # m.solvexiModels()
+    m.densityIntPlot()
     # print("-----------Preference-------------------")
     # m = preferenceModel()
     # m.solveHJB('Weighted', 'WeightedAverse')
