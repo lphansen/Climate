@@ -203,7 +203,7 @@ def PDESolver(stateSpace, A, B_r, B_f, B_k, C_rr, C_ff, C_kk, D, v0, ε = 1, sol
 
         return out
 
-def densityPlot(key = 'Weighted'):
+def densityPlot(beta_f_space, Dists, key = 'Weighted'):
     years = [50, 75, 100]
 
     titles = ["Year {}".format(year) for year in years]
@@ -272,7 +272,7 @@ def densityPlot(key = 'Weighted'):
     fig = go.FigureWidget(fig)
     iplot(fig)
 
-def SCCDecomposePlot(key = 'Weighted'):
+def SCCDecomposePlot(SCCs, key = 'Weighted'):
 
     if key == 'Low':
 
@@ -335,7 +335,7 @@ def SCCDecomposePlot(key = 'Weighted'):
     fig = dict(data = [total, external, uncertainty], layout = layout)
     iplot(fig)
     
-def emissionPlot(damageSpec, ξ):
+def emissionPlot(damageSpec, ξ, e_hists):
 
     colors = {'High': 'red', 'Low': 'green', 'Weighted': '#1f77b4'}
     lines = {'Averse': 'solid', "Neutral": 'dashdot'}
