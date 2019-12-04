@@ -1,4 +1,4 @@
-%%%%% This file generates results for the Ambiguity Averse model.
+%%%% This file generates results for the Ambiguity Averse model.
 % Authors: Mike Barnett, Jieyao Wang
 % Last update: Oct 09, 2019
 close all
@@ -11,7 +11,7 @@ clc
 % addpath('/home/wangjieyao/FT/')
 % addpath('/Volumes/homes/FT/')
 % addpath('/Volumes/wangjieyao/Climate/FT')
-addpath('C:\Users\hanxuh\Google Drive\MFR\github\Climate\Preference\Weighted')
+% addpath('C:\Users\hanxuh\Google Drive\MFR\github\Climate\Preference\Weighted')
 
 %% Step 1: Set up parameters
 
@@ -61,11 +61,11 @@ F_max = 4000;
 k_min = 0;
 k_max = 9; %k = logK
 % nr = 30;
-nr = 200;
-nF = 40;
+nr = 50;
+nF = 30;
 % nF = 80;
 % nk = 25;
-nk = 30;
+nk = 15;
 r = linspace(r_min,r_max,nr)';
 t = linspace(F_min,F_max,nF)';
 k = linspace(k_min,k_max,nk)';
@@ -79,13 +79,19 @@ n = 30;
 a = beta_f-5.*sqrt(var_beta_f);
 b = beta_f+5.*sqrt(var_beta_f);
 
-tol = 5e-5; % tol
-dt = 0.3; % epsilon
+
+tol = 1e-8;
+
+dt = .2; % epsilon
 v0 = (kappa).*r_mat+(1-kappa).*k_mat-beta_f.*F_mat; % initial guess
 v1_initial = v0.*ones(size(r_mat));
 out = v0;
 vold = v0 .* ones(size(v0));
 iter = 1;
+
+
+
+
 
 v0 = v0.*ones(size(v0));
 v0 = reshape(out,size(v0));
@@ -241,7 +247,9 @@ q = delta.*(1-kappa)./(alpha-i_k-j);
 eta = 0.05
 pde_error = 1;
 
-while (max(max(max(abs(pde_error))))) > tol % check for convergence
+% load(filename2, 'v0', 'A', 'B_r', 'B_t', 'B_k', 'C_rr', 'C_tt', 'C_kk', 'D', 'e_star');
+
+while (max(max(max(abs(out_comp - vold))))) > tol % check for convergence
    tic
    vold = v0 .* ones(size(v0));
 
@@ -267,27 +275,23 @@ while (max(max(max(abs(pde_error))))) > tol % check for convergence
     
     
     v0_dt = zeros(size(v0));
-%     v0_dt(:,2:end-1,:) = (1./(ht)).*(v0(:,3:end,:)-v0(:,2:end-1,:));
-%     v0_dt(:,2:end-1,:) = (1./(2.*ht)).*(v0(:,3:end,:)-v0(:,1:end-2,:));
-    v0_dt(:,2:end-1,:) = (1./(ht)).*((v0(:,3:end,:)-v0(:,2:end-1,:)) .* (B_t(:,2:end-1,:)>=0) ...
-                                +(v0(:,2:end-1,:)-v0(:,1:end-2,:)) .* (B_t(:,2:end-1,:)<0));
+    v0_dt(:,2:end-1,:) = (1./(2.*ht)).*(v0(:,3:end,:)-v0(:,1:end-2,:));
+%     v0_dt(:,2:end-1,:) = (1./(ht)).*((v0(:,3:end,:)-v0(:,2:end-1,:)) .* (B_t(:,2:end-1,:)>=0) ...
+%                             +(v0(:,2:end-1,:)-v0(:,1:end-2,:)) .* (B_t(:,2:end-1,:)<0));
     v0_dt(:,end,:) = (1./ht).*(v0(:,end,:)-v0(:,end-1,:));
     v0_dt(:,1,:) = (1./ht).*(v0(:,2,:)-v0(:,1,:));
 
     v0_dr = zeros(size(v0));
-%     v0_dr(2:end-1,:,:) = (1./(hr)).*(v0(2:end-1,:,:)-v0(1:end-2,:,:));
-%     v0_dr(2:end-1,:,:) = (1./(2.*hr)).*(v0(3:end,:,:)-v0(1:end-2,:,:));
-    v0_dr(2:end-1,:,:) = (1./(hr)).*((v0(3:end,:,:)-v0(2:end-1,:,:)) .* (B_r(2:end-1,:,:)>=0) ...
-                            +(v0(2:end-1,:,:)-v0(1:end-2,:,:)) .* (B_r(2:end-1,:,:)<0));
+    v0_dr(2:end-1,:,:) = (1./(2.*hr)).*(v0(3:end,:,:)-v0(1:end-2,:,:));
+%     v0_dr(2:end-1,:,:) = (1./(hr)).*((v0(3:end,:,:)-v0(2:end-1,:,:)) .* (B_r(2:end-1,:,:)>=0) ...
+%                             +(v0(2:end-1,:,:)-v0(1:end-2,:,:)) .* (B_r(2:end-1,:,:)<0));
     v0_dr(end,:,:) = (1./hr).*(v0(end,:,:)-v0(end-1,:,:));
     v0_dr(1,:,:) = (1./hr).*(v0(2,:,:)-v0(1,:,:));
-%     v0_dr(v0_dr<1e-8) = 1e-8;
 
     v0_dk = zeros(size(v0));
-%     v0_dk(:,:,2:end-1) = (1./(hk)).*(v0(:,:,3:end)-v0(:,:,2:end-1));
-%     v0_dk(:,:,2:end-1) = (1./(2.*hk)).*(v0(:,:,3:end)-v0(:,:,1:end-2));
-    v0_dk(:,:,2:end-1) = (1./(hk)).*((v0(:,:,3:end)-v0(:,:,2:end-1)) .* (B_k(:,:,2:end-1)>=0) ...
-                            +(v0(:,:,2:end-1)-v0(:,:,1:end-2)) .* (B_k(:,:,2:end-1)<0));
+    v0_dk(:,:,2:end-1) = (1./(2.*hk)).*(v0(:,:,3:end)-v0(:,:,1:end-2));
+%     v0_dk(:,:,2:end-1) = (1./(hk)).*((v0(:,:,3:end)-v0(:,:,2:end-1)) .* (B_k(:,:,2:end-1)>=0) ...
+%                             +(v0(:,:,2:end-1)-v0(:,:,1:end-2)) .* (B_k(:,:,2:end-1)<0));
     v0_dk(:,:,end) = (1./hk).*(v0(:,:,end)-v0(:,:,end-1));
     v0_dk(:,:,1) = (1./hk).*(v0(:,:,2)-v0(:,:,1));
 
@@ -421,14 +425,11 @@ while (max(max(max(abs(pde_error))))) > tol % check for convergence
     toc
 end
 
-s0 = '/HJB_NonLinPref_Cumu';
-filename = [pwd, s0];
-save(filename); % save HJB solution
+save("HJB_boundary_test_natural"); % save HJB solution
 stop;
 %% Step 3: simulation
 
-filename2 = [pwd,'/HJB_NonLinPref_Cumu'];
-filename3 = [filename2,'_Sims'];
+filename3 = [filename1,'_Sims'];
 
 T = 100; % 100 years
 pers = 4*T; % quarterly
@@ -797,11 +798,11 @@ SCC2_FK_tilt = mean(SCC2_tilt_values,2);
 SCC2_V_d_baseline = mean(SCC2_V_d_baseline_values,2);
 SCC2_V_d_tilt = mean(SCC2_V_d_tilt_values,2);
 
-SCC = SCC_total;
-SCC1 = SCC_private;
-SCC2 = SCC2_FK_base+SCC2_V_d_baseline;
+SCC = SCC_total; % Total
+SCC1 = SCC_private; % Private
+SCC2 = SCC2_FK_base+SCC2_V_d_baseline; % External
 SCC3 = SCC2_V_d_tilt-SCC2_V_d_baseline...
-    +SCC2_FK_tilt-SCC2_FK_base;
+    +SCC2_FK_tilt-SCC2_FK_base; % Uncertainty
 
 % save results
 s1 = num2str(1.*xi_p,4);

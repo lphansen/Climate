@@ -204,20 +204,36 @@ void linearSysVars::constructMat(stateVars & state_vars) {
                 upperBound = 1.0;
                 /* Uncomment this section if you want natural boundaries */
                 
-                 matList.push_back(T(i, i, - dt * ( firstCoefE/state_vars.dVec(n) + secondCoefE / pow(state_vars.dVec(n), 2) ) ) );
-                 matList.push_back(T(i, i - state_vars.increVec(n), - dt * ( - firstCoefE/state_vars.dVec(n) - 2 * secondCoefE / pow(state_vars.dVec(n), 2) ) ));
-                 matList.push_back(T(i, i - 2*state_vars.increVec(n), - dt * ( secondCoefE / pow(state_vars.dVec(n), 2) ) ) );
+                 //matList.push_back(T(i, i, - dt * ( firstCoefE/state_vars.dVec(n) + secondCoefE / pow(state_vars.dVec(n), 2) ) ) );
+                 //matList.push_back(T(i, i - state_vars.increVec(n), - dt * ( - firstCoefE/state_vars.dVec(n) - 2 * secondCoefE / pow(state_vars.dVec(n), 2) ) ));
+                 //matList.push_back(T(i, i - 2*state_vars.increVec(n), - dt * ( secondCoefE / pow(state_vars.dVec(n), 2) ) ) );
                 
+
+
+                /* This section implements a zero first derivative following the online appendix
+                 for "Income and Wealth Distribution in Macroeconomics: A Continuous-Time Approach"
+                 by Achdou et al.*/
+
+                 matList.push_back(T(i, i, -dt * (firstCoefE * (firstCoefE < 0) / state_vars.dVec(n) - secondCoefE / pow(state_vars.dVec(n), 2))));
+                 matList.push_back(T(i, i - state_vars.increVec(n), -dt * (-firstCoefE * (firstCoefE < 0) / state_vars.dVec(n) + secondCoefE / pow(state_vars.dVec(n), 2))));
+
+
+
                 /* Uncomment this section if you want first derivatives = constant  */
-//                 matList.push_back(T(i,i, - (1.0 - dt * A(i,0) ) ));
                 /*
-                 matList.push_back(T(i, i, - dt * ( 1.0/state_vars.dVec(n)  ) ) );
-                 matList.push_back(T(i, i - state_vars.increVec(n), - dt * ( - 1.0/state_vars.dVec(n)  ) ));*/
-                 /*
+                matList.push_back(T(i,i, - (1.0 - dt * A(i,0) ) ));
+                
+                matList.push_back(T(i, i, - dt * ( 1.0/state_vars.dVec(n)  ) ) );
+                matList.push_back(T(i, i - state_vars.increVec(n), - dt * ( - 1.0/state_vars.dVec(n)  ) ));
+                
                 if ((n == 0) && atBoundIndicators(1) > 0 ) {
                  matList.push_back(T(i, i,  dt * ( firstCoefE/state_vars.dVec(n)  ) ) );
                  matList.push_back(T(i, i - state_vars.increVec(n),  dt * ( - firstCoefE/state_vars.dVec(n)  ) ));
-                }*/
+                }
+                */
+
+
+
                 /* Uncomment this section if you want second derivatives = constant  */
                 //matList.push_back(T(i,i, - (1.0 - dt * A(i,0) )  ));   
                 /*
@@ -237,21 +253,36 @@ void linearSysVars::constructMat(stateVars & state_vars) {
 
                 ///* Uncomment this section if you want natural boundaries
 
-                 matList.push_back(T(i, i, - dt * ( - firstCoefE/state_vars.dVec(n) + secondCoefE / pow(state_vars.dVec(n), 2) ) ) );
-                 matList.push_back(T(i, i + state_vars.increVec(n), - dt * ( firstCoefE/state_vars.dVec(n) - 2 * secondCoefE / pow(state_vars.dVec(n), 2) ) ));
-                 matList.push_back(T(i, i + 2*state_vars.increVec(n), - dt * ( secondCoefE / pow(state_vars.dVec(n), 2) ) ) );
+                 //matList.push_back(T(i, i, - dt * ( - firstCoefE/state_vars.dVec(n) + secondCoefE / pow(state_vars.dVec(n), 2) ) ) );
+                 //matList.push_back(T(i, i + state_vars.increVec(n), - dt * ( firstCoefE/state_vars.dVec(n) - 2 * secondCoefE / pow(state_vars.dVec(n), 2) ) ));
+                 //matList.push_back(T(i, i + 2*state_vars.increVec(n), - dt * ( secondCoefE / pow(state_vars.dVec(n), 2) ) ) );
+
+
+
+
+                /* This section implements a zero first derivative following the online appendix
+                 for "Income and Wealth Distribution in Macroeconomics: A Continuous-Time Approach"
+                 by Achdou et al.*/
+
+                 matList.push_back(T(i, i, -dt * (-firstCoefE * (firstCoefE > 0) / state_vars.dVec(n) - secondCoefE / pow(state_vars.dVec(n), 2))));
+                 matList.push_back(T(i, i + state_vars.increVec(n), -dt * (firstCoefE * (firstCoefE > 0) / state_vars.dVec(n) + secondCoefE / pow(state_vars.dVec(n), 2))));
+
+
 
                 //*/
                 /* Uncomment this section if you want first derivatives = constant
                  */
-//                 matList.push_back(T(i,i, - (1.0 - dt * A(i,0) ) ));
-                // matList.push_back(T(i, i, - dt * ( - 1/state_vars.dVec(n)  ) ) );
-                // matList.push_back(T(i, i + state_vars.increVec(n), - dt * ( 1/state_vars.dVec(n) ) ));
-                 /*
+                /*
+                matList.push_back(T(i,i, - (1.0 - dt * A(i,0) ) ));
+                matList.push_back(T(i, i, - dt * ( - 1/state_vars.dVec(n)  ) ) );
+                matList.push_back(T(i, i + state_vars.increVec(n), - dt * ( 1/state_vars.dVec(n) ) ));
+                
                 if ((n == 0) && atBoundIndicators(1) > 0 ) {
                  matList.push_back(T(i, i,  dt * ( - firstCoefE/state_vars.dVec(n)  ) ) );
-                 matList.push_back(T(i, i + state_vars.increVec(n),  dt * ( firstCoefE/state_vars.dVec(n) ) ));
-                }*/
+                 matList.push_back(T(i, i + state_vars.increVec(n),  dt * ( firstCoefE/state_vars.dVec(n) ) ));}
+                */
+
+
                 /* Uncomment this section if you want second derivatives = constant  */
                 //matList.push_back(T(i,i, - (1.0 - dt * A(i,0) )/ state_vars.N ));
                 /*
@@ -306,8 +337,7 @@ void linearSysVars::constructMat(stateVars & state_vars) {
 }
 
 
-void
-mexFunction(int nlhs,mxArray *plhs[],int nrhs,const mxArray *prhs[])
+void mexFunction(int nlhs,mxArray *plhs[],int nrhs,const mxArray *prhs[])
 {
     int        i;
 
@@ -386,6 +416,7 @@ mexFunction(int nlhs,mxArray *plhs[],int nrhs,const mxArray *prhs[])
     //cgE.setMaxIterations(10000);
     cgE.setTolerance( 0.0000000001 );
     cgE.compute(linearSys_vars.Le);
+    if (dt == 0.21) {saveMarket(linearSys_vars.Le, "a_matrix.dat");};
     XiEVector = cgE.solveWithGuess(v0,v1);
     mexPrintf("CONJUGATE GRADIENT TOOK (number of iterations): %3i \n",  cgE.iterations() );
     mexPrintf("CONJUGATE GRADIENT error: %3f% \n",  cgE.error() );
