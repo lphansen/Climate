@@ -380,13 +380,13 @@ def growthdensityPlot(beta_f_space, Dists):
             fig.add_scatter(x = dom[inds] * 1000, y = data['Original'][inds], row = 1, col = i + 1,
                 name = 'Original Distribution', line = dict(color = '#1f77b4', width = 3), showlegend = True, legendgroup = 'Original Distribution')
             for j, tilt in enumerate(Dists['Year{}'.format(year)]['tilt_dist']):
-                fig.add_scatter(x = dom[inds] * 1000, y = tilt, row = 1, col = i + 1,
+                fig.add_scatter(x = dom[inds] * 1000, y = tilt[inds], row = 1, col = i + 1,
                     name = 'Tilted {}'.format(j+1), line = dict(color = tilt_colors[j], dash='dash', width = 2), showlegend = True, legendgroup = 'Tilted Densities {}'.format(j))
         else:
             fig.add_scatter(x = dom[inds] * 1000, y = data['Original'][inds], row = 1, col = i + 1,
                 name = 'Original Distribution', line = dict(color = '#1f77b4', width = 3), showlegend = False, legendgroup = 'Original Distribution')
             for j, tilt in enumerate(Dists['Year{}'.format(year)]['tilt_dist']):
-                fig.add_scatter(x = dom[inds] * 1000, y = tilt, row = 1, col = i + 1,
+                fig.add_scatter(x = dom[inds] * 1000, y = tilt[inds], row = 1, col = i + 1,
                     name = 'Tilted {}'.format(j+1), line = dict(color = tilt_colors[j], dash='dash', width = 2), showlegend = False, legendgroup = 'Tilted Densities {}'.format(j))
 
 
