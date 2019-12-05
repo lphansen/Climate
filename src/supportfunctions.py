@@ -186,7 +186,6 @@ def PDESolver(stateSpace, A, B_r, B_f, B_k, C_rr, C_ff, C_kk, D, v0, ε = 1, sol
         D = D.reshape(-1,1,order = 'F')
         v0 = v0.reshape(-1,1,order = 'F')
         v1 = v0.reshape(-1,1,order = 'F')
-#         out = SolveLinSys1.solve(stateSpace, A, B, C, D, v0, ε)
         out = SolveLinSys.solveFT(stateSpace, A, B, C, D, v0, ε)
 
         return out
@@ -198,7 +197,6 @@ def PDESolver(stateSpace, A, B_r, B_f, B_k, C_rr, C_ff, C_kk, D, v0, ε = 1, sol
         C = np.hstack([C_rr.reshape(-1, 1, order='F'), C_ff.reshape(-1, 1, order='F'), C_kk.reshape(-1, 1, order='F')])
         D = D.reshape(-1, 1, order='F')
         v0 = v0.reshape(-1, 1, order='F')
-#         out = SolveLinSys2.solve(stateSpace, A, B, C, D, v0)
         out = SolveLinSys.solveFK(stateSpace, A, B, C, D, v0)
 
         return out
@@ -257,7 +255,7 @@ def densityPlot(beta_f_space, Dists, key = 'Weighted'):
                 fig.add_scatter(x = dom[inds] * 1000, y = data['Nordhaus_year' + str(year)][inds], row = 1, col = i + 1,
                     name = 'Low Damage Function', line = dict(color = 'red', dash='dashdot', width = 3), showlegend = False, legendgroup = 'Low Damage Function')
 
-    fig['layout'].update(title = key + " Damage Specification", showlegend = True, titlefont = dict(size = 20), height = 400)
+    fig['layout'].update(title = key + " Damage Specification", showlegend = True, titlefont = dict(size = 20))
 
     for i in range(len(years)):
 
@@ -300,10 +298,10 @@ def SCCDecomposePlot(SCCs, key = 'Weighted'):
                    name = 'Total', line = dict(color = '#1f77b4', dash = 'solid', width = 3),\
                        showlegend = False)
     external = go.Scatter(x = x, y = external_SCC,
-                   name = 'Ambiguity', line = dict(color = 'red', dash = 'dot', width = 3),\
+                   name = 'Uncertainty', line = dict(color = 'red', dash = 'dot', width = 3),\
                           showlegend = False)
     uncertainty = go.Scatter(x = x, y = uncertainty_SCC,
-                   name = 'No Ambiguity', line = dict(color = 'green', dash = 'dashdot', width = 3),\
+                   name = 'External', line = dict(color = 'green', dash = 'dashdot', width = 3),\
                              showlegend = False)
     private = go.Scatter(x = x, y = private_SCC,
                    name = 'Private', line = dict(color = 'black', width = 3),\
@@ -313,11 +311,11 @@ def SCCDecomposePlot(SCCs, key = 'Weighted'):
                 ay=-75, font=dict(color="black", size=12), arrowcolor="black",
                 arrowsize=3, arrowwidth=1, arrowhead=1),
 
-                dict(x=x2, y=y2, text="Ambiguity", textangle=0, ax=-100,
+                dict(x=x2, y=y2, text="Uncertainty", textangle=0, ax=-100,
                 ay=0, font=dict(color="black", size=12), arrowcolor="black",
                 arrowsize=3, arrowwidth=1, arrowhead=1),
 
-                dict(x=x3, y=y3, text="No Ambiguity", textangle=0, ax=-80,
+                dict(x=x3, y=y3, text="External", textangle=0, ax=-80,
                 ay=80, font=dict(color="black", size=12), arrowcolor="black",
                 arrowsize=3, arrowwidth=1, arrowhead=1)]
 
@@ -337,6 +335,78 @@ def SCCDecomposePlot(SCCs, key = 'Weighted'):
     
 def emissionPlot(damageSpec, ξ, e_hists):
 
+	colors = {'High': 'red', 'Low': 'green', 'Weighted': '#1f77b4'}
+	lines = {'Averse': 'solid', "Neutral": 'dashdot'}
+
+	# damageSpecs = ['High', 'Low', 'Weighted']
+	# aversionSpecs = ['Averse', 'Neutral']
+	# colors = ['green', '#1f77b4', 'red']
+	# lines = ['solid', 'dashdot'] 
+
+	x = np.linspace(0, 100, 400)
+	data = []
+
+	data.append(go.Scatter(x = x, y = e_hists[:,0], name = damageSpec +  ' Damage w/ ξ= {}'.format(ξ),
+	    line = dict(width = 2, dash = 'solid', color = colors[damageSpec]), showlegend = True))
+
+	layout = dict(title = 'Emissions Plot with {} Damage Setting, ξ = {}'.format(damageSpec, ξ),
+	  titlefont = dict(size = 20),
+	  xaxis = go.layout.XAxis(title=go.layout.xaxis.Title(
+	                    text='Years', font=dict(size=16)),
+	                         tickfont=dict(size=12), showgrid = False, showline = True),
+	  yaxis = go.layout.YAxis(title=go.layout.yaxis.Title(
+	                    text='Gigatons of Carbon', font=dict(size=16)),
+	                         tickfont=dict(size=12), showgrid = False),
+	  legend = dict(orientation = 'h', y = 1.15)
+	  )
+
+	fig = dict(data = data, layout = layout)
+	iplot(fig)
+
+def growthdensityPlot(beta_f_space, Dists):
+    years = [50, 75, 100]
+
+    titles = ["Year {}".format(year) for year in years]
+    tilt_colors = ['#FFFF00', '#FFE600', '#FFCC00', '#FFB300', '#FF9900', '#FF8000', '#FF6600', '#FF4D00', '#FF3300', '#FF1A00', '#FF0000']
+
+    fig = make_subplots(1, len(years), print_grid = False, subplot_titles = titles)
+
+    dom = beta_f_space
+    inds = ((dom>=0) & (dom<=5e-3))
+
+    for i, year in enumerate(years):
+        data = Dists
+        if i == 0:
+            fig.add_scatter(x = dom[inds] * 1000, y = data['Original'][inds], row = 1, col = i + 1,
+                name = 'Original Distribution', line = dict(color = '#1f77b4', width = 3), showlegend = True, legendgroup = 'Original Distribution')
+            for j, tilt in enumerate(Dists['Year{}'.format(year)]['tilt_dist']):
+                fig.add_scatter(x = dom[inds] * 1000, y = tilt, row = 1, col = i + 1,
+                    name = 'Tilted {}'.format(j+1), line = dict(color = tilt_colors[j], dash='dash', width = 2), showlegend = True, legendgroup = 'Tilted Densities {}'.format(j))
+        else:
+            fig.add_scatter(x = dom[inds] * 1000, y = data['Original'][inds], row = 1, col = i + 1,
+                name = 'Original Distribution', line = dict(color = '#1f77b4', width = 3), showlegend = False, legendgroup = 'Original Distribution')
+            for j, tilt in enumerate(Dists['Year{}'.format(year)]['tilt_dist']):
+                fig.add_scatter(x = dom[inds] * 1000, y = tilt, row = 1, col = i + 1,
+                    name = 'Tilted {}'.format(j+1), line = dict(color = tilt_colors[j], dash='dash', width = 2), showlegend = False, legendgroup = 'Tilted Densities {}'.format(j))
+
+
+    fig['layout'].update(title = "Worst Case Probabilities, Growth Damage Specification", showlegend = True, titlefont = dict(size = 20))
+
+    for i in range(len(years)):
+
+        fig['layout']['yaxis{}'.format(i+1)].update(showgrid = False)
+        fig['layout']['xaxis{}'.format(i+1)].update(showgrid = False)
+
+    fig['layout']['yaxis1'].update(title=go.layout.yaxis.Title(
+                                    text="Probability Density", font=dict(size=16)))
+    fig['layout']['xaxis2'].update(title=go.layout.xaxis.Title(
+                                    text="Climate Sensitivity", font=dict(size=16)), showgrid = False)
+
+    fig = go.FigureWidget(fig)
+    iplot(fig)
+
+def growthemissionPlot(ξ, e_hists):
+
     colors = {'High': 'red', 'Low': 'green', 'Weighted': '#1f77b4'}
     lines = {'Averse': 'solid', "Neutral": 'dashdot'}
 
@@ -344,14 +414,19 @@ def emissionPlot(damageSpec, ξ, e_hists):
     # aversionSpecs = ['Averse', 'Neutral']
     # colors = ['green', '#1f77b4', 'red']
     # lines = ['solid', 'dashdot'] 
+    if ξ < 1:  # Averse
+        key = 'Growth Averse'
+
+    else:      # Neutral
+        key = 'Growth Neutral'
 
     x = np.linspace(0, 100, 400)
     data = []
 
-    data.append(go.Scatter(x = x, y = e_hists[:,0], name = damageSpec +  ' Damage w/ ξ= {}'.format(ξ),
-        line = dict(width = 2, dash = 'solid', color = colors[damageSpec]), showlegend = True))
+    data.append(go.Scatter(x = x, y = e_hists[:,0], name = key +  ' Damage w/ ξ= {:4f}'.format(ξ),
+        line = dict(width = 2, dash = 'solid', color = '#1f77b4'), showlegend = True))
 
-    layout = dict(title = 'Emissions Plot with {} Damage Setting, ξ = {}'.format(damageSpec, ξ),
+    layout = dict(title = 'Emissions Plot with {} Setting, ξ = {:4f}'.format(key, ξ),
       titlefont = dict(size = 20),
       xaxis = go.layout.XAxis(title=go.layout.xaxis.Title(
                         text='Years', font=dict(size=16)),
@@ -363,4 +438,62 @@ def emissionPlot(damageSpec, ξ, e_hists):
       )
 
     fig = dict(data = data, layout = layout)
+    iplot(fig)
+
+def growthSCCDecomposePlot(SCCs, ξ):
+
+    if ξ < 1:  # Averse
+        data = SCCs
+        x1, y1, x2, y2, x3, y3 = 60, 1500, 80, 1120, 93, 1280
+        lgd = False
+        key = 'Growth Averse'
+
+    else:      # Neutral
+        data = SCCs
+        lgd = True
+        key = 'Growth Neutral'
+
+    total_SCC = np.array(data['SCC'])
+    external_SCC = np.array(data['SCC2'])
+    uncertainty_SCC = np.array(data['SCC3'])
+    private_SCC = np.array(data['SCC1'])
+    x = np.linspace(0,100,400)
+
+    total = go.Scatter(x = x, y = total_SCC,
+           name = 'Total', line = dict(color = '#1f77b4', dash = 'solid', width = 3),\
+               showlegend = lgd)
+    external = go.Scatter(x = x, y = external_SCC,
+           name = 'Ambiguity', line = dict(color = 'red', dash = 'dot', width = 3),\
+                  showlegend = lgd)
+    uncertainty = go.Scatter(x = x, y = uncertainty_SCC,
+           name = 'No Ambiguity', line = dict(color = 'green', dash = 'dashdot', width = 3),\
+                     showlegend = lgd)
+    private = go.Scatter(x = x, y = private_SCC,
+           name = 'Private', line = dict(color = 'black', width = 3),\
+                 showlegend = False)
+
+    annotations=[dict(x=x1, y=y1, text="Total", textangle=0, ax=-100,
+        ay=-75, font=dict(color="black", size=12), arrowcolor="black",
+        arrowsize=3, arrowwidth=1, arrowhead=1),
+
+        dict(x=x2, y=y2, text="Ambiguity", textangle=0, ax=-100,
+        ay=0, font=dict(color="black", size=12), arrowcolor="black",
+        arrowsize=3, arrowwidth=1, arrowhead=1),
+
+        dict(x=x3, y=y3, text="No Ambiguity", textangle=0, ax=-80,
+            ay=80, font=dict(color="black", size=12), arrowcolor="black",
+            arrowsize=3, arrowwidth=1, arrowhead=1)]
+
+    layout = dict(title = 'Social Cost of Carbon, {} Specification'.format(key), 
+              titlefont = dict(size = 20),
+              xaxis = go.layout.XAxis(title=go.layout.xaxis.Title(
+                                text='Years', font=dict(size=16)),
+                                     tickfont=dict(size=12), showgrid = False),
+              yaxis = go.layout.YAxis(title=go.layout.yaxis.Title(
+                                text='Dollars per Ton of Carbon', font=dict(size=16)),
+                                     tickfont=dict(size=12), showgrid = False), 
+              annotations=annotations
+              )
+
+    fig = dict(data = [total, external, uncertainty], layout = layout)
     iplot(fig)
