@@ -97,7 +97,7 @@ setup(
     name='SolveLinSys',
     version=__version__,
     author='Macro Finance Research Program',
-    author_email='jandrewjmwang@uchicago.edu',
+    author_email='andrewjmwang@uchicago.edu',
     url='https://bfi.uchicago.edu/programs/macro-finance-research-program/',
     description='A solver aimed to solve PDE accompanying the paper "Pricing Uncertainty Induced by Climate Change" by MFR at BFI',
     long_description='',
