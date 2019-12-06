@@ -9,27 +9,27 @@ clear all;
 
 file2 = [pwd, '/SCC_mat_Cumu_base_GrowthNoAmb_1e9'];
 
-Model2 = load(file2,'v0','r_mat','k_mat','F_mat','i_k','j','e','v0_dk','v0_dr','xi_p',...
-              'alpha','kappa','delta','phi_1','phi_0','gamma_1','gamma_2','t_bar',...
+Model2 = load(file2,'v0','r_mat','k_mat','t_mat','i_k','f','e','v0_dk','v0_dr','theta',...
+              'A_O','alpha','delta','Theta','Gamma','gamma_1','gamma_2','t_bar',...
               'beta_f','var_beta_f');
 
 external_v0 = Model2.v0;
 r_mat_1 = Model2.r_mat;
 k_mat_1 = Model2.k_mat;
-F_mat_1 = Model2.F_mat;
+t_mat_1 = Model2.t_mat;
 gamma_1 = Model2.gamma_1;
 gamma_2 = Model2.gamma_2;
 t_bar = Model2.t_bar;
-xi_p = Model2.xi_p;
+theta = Model2.theta;
+A_O = Model2.A_O;
 alpha = Model2.alpha;
-kappa = Model2.kappa;
 delta = Model2.delta;
-phi_0 = Model2.phi_0;
-phi_1 = Model2.phi_1;
+Gamma = Model2.Gamma;
+Theta = Model2.Theta;
 beta_f = Model2.beta_f;
 var_beta_f = Model2.var_beta_f;
 e_1 = Model2.e;
-j_1 = Model2.j;
+f_1 = Model2.f;
 i_k_1 = Model2.i_k;
 
 file2 = [pwd, '/HJB_Growth_Neutral'];
@@ -37,22 +37,22 @@ Model2 = load(file2,'v0_dr','v0_dt');
 v0_dr_1 = Model2.v0_dr;
 v0_dt_1 = Model2.v0_dt;
 
-MC = delta.*(1-kappa)./(alpha.*exp(k_mat_1)-i_k_1.*exp(k_mat_1)-j_1.*exp(k_mat_1));
-ME = delta.*kappa./(e_1.*exp(r_mat_1));
+MC = delta.*(1-alpha)./(A_O.*exp(k_mat_1)-i_k_1.*exp(k_mat_1)-f_1.*exp(k_mat_1));
+ME = delta.*alpha./(e_1.*exp(r_mat_1));
 SCC = 1000*ME./MC;
-SCC_func = griddedInterpolant(r_mat_1,F_mat_1,k_mat_1,SCC,'linear');
+SCC_func = griddedInterpolant(r_mat_1,t_mat_1,k_mat_1,SCC,'linear');
 
 ME1 = (v0_dr_1.*exp(-r_mat_1));
 SCC1 = 1000*ME1./MC;
-SCC1_func = griddedInterpolant(r_mat_1,F_mat_1,k_mat_1,SCC1,'linear');
+SCC1_func = griddedInterpolant(r_mat_1,t_mat_1,k_mat_1,SCC1,'linear');
 
 ME2_base =  external_v0;
 SCC2_base = 1000*ME2_base./MC;
-SCC2_base_func = griddedInterpolant(r_mat_1,F_mat_1,k_mat_1,SCC2_base,'linear');
+SCC2_base_func = griddedInterpolant(r_mat_1,t_mat_1,k_mat_1,SCC2_base,'linear');
 
 ME2_base_a = -v0_dt_1;
 SCC2_base_a = 1000*ME2_base_a./MC;
-SCC2_base_a_func = griddedInterpolant(r_mat_1,F_mat_1,k_mat_1,SCC2_base_a,'linear');
+SCC2_base_a_func = griddedInterpolant(r_mat_1,t_mat_1,k_mat_1,SCC2_base_a,'linear');
 
 file2 = [pwd, '/SCC_mat_Cumu_worst_GrowthNoAmb_1e9'];
 Model2 = load(file2,'v0');
@@ -60,7 +60,7 @@ external_v0_worst = Model2.v0;
 
 ME2_tilt =  external_v0_worst;
 SCC2_tilt = 1000*ME2_tilt./MC;
-SCC2_tilt_func = griddedInterpolant(r_mat_1,F_mat_1,k_mat_1,SCC2_tilt,'linear');
+SCC2_tilt_func = griddedInterpolant(r_mat_1,t_mat_1,k_mat_1,SCC2_tilt,'linear');
 
 file1 = [pwd, '/HJB_Growth_Neutral_Sims_JY'];
 Model1 = load(file1,'hists2','e_hists2','RE_hists2');
