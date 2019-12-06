@@ -476,11 +476,11 @@ def growthSCCDecomposePlot(SCCs, ξ):
         ay=-75, font=dict(color="black", size=12), arrowcolor="black",
         arrowsize=3, arrowwidth=1, arrowhead=1),
 
-        dict(x=x2, y=y2, text="Ambiguity", textangle=0, ax=-100,
+        dict(x=x2, y=y2, text="Uncertainty", textangle=0, ax=-100,
         ay=0, font=dict(color="black", size=12), arrowcolor="black",
         arrowsize=3, arrowwidth=1, arrowhead=1),
 
-        dict(x=x3, y=y3, text="No Ambiguity", textangle=0, ax=-80,
+        dict(x=x3, y=y3, text="External", textangle=0, ax=-80,
             ay=80, font=dict(color="black", size=12), arrowcolor="black",
             arrowsize=3, arrowwidth=1, arrowhead=1)]
 

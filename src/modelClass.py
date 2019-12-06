@@ -50,7 +50,7 @@ preferenceParams['σ𝘳'] = 0.0339
 preferenceParams['α'] = 0.115000000000000
 preferenceParams['ϕ0'] = 0.0600
 preferenceParams['ϕ1'] = 16.666666666666668
-preferenceParams['μ̄ₖ'] = -0.034977443912449
+preferenceParams['μk'] = -0.034977443912449
 preferenceParams['ψ0'] = 0.112733407891680
 preferenceParams['ψ1'] = 0.142857142857143
 # parameters for damage function
@@ -64,13 +64,13 @@ preferenceParams['ρ12'] = 0
 preferenceParams['F̄'] = 2
 preferenceParams['crit'] = 2
 preferenceParams['F0'] = 1
-preferenceParams['ξₚ'] = 1 / 4000   # 4000, 0.01
+preferenceParams['ξp'] = 1 / 4000   # 4000, 0.01
 McD = np.loadtxt('./data/TCRE_MacDougallEtAl2017_update.txt')
 preferenceParams['βMcD'] = McD / 1000.0
 
 # Parameters for the model in growth setting
 growthParams = OrderedDict({})
-growthParams['ξₚ'] = 1 / 175 
+growthParams['ξp'] = 1 / 175 
 growthParams['δ'] = 0.01  # subjective rate of discount
 growthParams['κ'] = 0.032      
 growthParams['σ𝘨'] = 0.02
@@ -79,7 +79,7 @@ growthParams['σ𝘳'] = 0.0339
 growthParams['α'] = 0.115000000000000
 growthParams['ϕ0'] = 0.0600
 growthParams['ϕ1'] = 16.666666666666668
-growthParams['μ̄ₖ'] = -0.034977443912449
+growthParams['μk'] = -0.034977443912449
 growthParams['ψ0'] = 0.112733407891680
 growthParams['ψ1'] = 0.142857142857143
 # parameters for damage function
@@ -89,7 +89,7 @@ growthParams['ρ12'] = -2.859133e-07 * 2
 growthParams['F̄'] = 13
 growthParams['μ1'] = 1.272e-02
 growthParams['μ2'] = -4.871e-04
-growthParams['ξₚ'] = 1 / 200  
+growthParams['ξp'] = 1 / 200  
 growthParams['βMcD'] = McD / 1000.0
 
 # Specification for Model's solver in preference setting
@@ -178,6 +178,808 @@ class GridInterp():
         else:
             raise ValueError('Method Not Supported')
 
+class PlottingModule():
+
+    def __init__(self):
+        self.preferenceModels = {}
+        self.growthModels = {}
+        self.xiModels = {}
+
+        self.preferenceModels = pickle.load(open("./data/plotdata_pref.pickle", "rb", -1))
+        self.growthModels = pickle.load(open("./data/plotdata_growth.pickle", "rb", -1))
+        self.xiModels = pickle.load(open("./data/plotdata_xis.pickle", "rb", -1))
+        self.SCCNets = None
+        self.eNets = None
+        xiList = sorted(self.xiModels.keys())
+        for ξ in xiList:
+            if self.SCCNets is None:
+
+                self.SCCNets = self.xiModels[ξ]['SCCs']['SCC']
+                self.eNets = np.squeeze(self.xiModels[ξ]['emissions'])
+
+            else:
+                self.SCCNets = np.vstack([self.SCCNets, self.xiModels[ξ]['SCCs']['SCC']])
+                self.eNets =  np.vstack([self.eNets, np.squeeze(self.xiModels[ξ]['emissions'])])
+
+    def dumpdata(self):
+        with open('./data/{}.pickle'.format('plotdata_pref'), "wb") as file_:
+            pickle.dump(self.preferenceModels, file_, -1)
+
+        with open('./data/{}.pickle'.format('plotdata_growth'), "wb") as file_:
+            pickle.dump(self.growthModels, file_, -1)
+
+        with open('./data/{}.pickle'.format('plotdata_xis'), "wb") as file_:
+            pickle.dump(self.xiModels, file_, -1)
+
+    def readdata(self, m):
+        for key in m.models.keys():
+            self.preferenceModels[key] = {}
+            self.preferenceModels[key]['SCCs'] = m.models[key].SCCs
+            self.preferenceModels[key]['Dists'] = m.models[key].Dists
+            self.preferenceModels[key]['emissions'] = m.models[key].e_hists
+            self.preferenceModels[key]['hists'] = m.models[key].hists
+            self.preferenceModels[key]['REs'] = m.models[key].REs
+            self.preferenceModels[key]['ξp'] = m.models[key].modelParams['ξp']
+            self.preferenceModels[key]['beta_f_space'] = m.models[key].beta_f_space
+
+        for key in m.growthmodels.keys():
+            self.growthModels[key] = {}
+            self.growthModels[key]['SCCs'] = m.growthmodels[key].SCCs
+            self.growthModels[key]['Dists'] = m.growthmodels[key].Dists
+            self.growthModels[key]['emissions'] = m.growthmodels[key].e_hists
+            self.growthModels[key]['hists'] = m.growthmodels[key].hists
+            self.growthModels[key]['REs'] = m.growthmodels[key].REs
+            self.growthModels[key]['ξp'] = m.growthmodels[key].modelParams['ξp']
+            self.growthModels[key]['beta_f_space'] = m.growthmodels[key].beta_f_space
+
+        for key in m.xiModels.keys():
+            self.xiModels[key] = {}
+            self.xiModels[key]['SCCs'] = m.xiModels[key].SCCs
+            self.xiModels[key]['emissions'] = m.xiModels[key].e_hists
+            self.xiModels[key]['hists'] = m.xiModels[key].hists
+            self.xiModels[key]['REs'] = m.xiModels[key].REs
+            # self.xiModels[key]['ξp'] = m.xiModels[key].modelParams['ξp']
+            self.xiModels[key]['beta_f_space'] = m.xiModels[key].beta_f_space
+
+    def densityIntPlot(self):
+        subplots = make_subplots(rows = 2, cols = 1,
+                                      vertical_spacing = 0.1)
+        fig = go.FigureWidget(subplots)
+        years = np.arange(1,101,1)
+        x = np.linspace(0,100,400)
+        dom = self.preferenceModels['WeightedAverse']['beta_f_space']
+        inds = ((dom>=0) & (dom<=5e-3))
+        data = self.preferenceModels['WeightedAverse']['Dists']
+
+        RE_min = np.min(self.preferenceModels['WeightedAverse']['REs']['RE'])
+        RE_max = np.max(self.preferenceModels['WeightedAverse']['REs']['RE'])
+
+        for y in years:
+            xs = [(y-1)] * 50
+            ys = np.linspace(RE_min, RE_max, 50)
+            if y == 1:
+                fig.add_trace(go.Scatter(x = dom[inds] * 1000, y = data['Nordhaus_year' + str(y)][inds],
+                    name = 'Low Damage Function', line = dict(color = 'red', dash='dashdot', width = 3), showlegend = True, visible = False, legendgroup = 'Low Damage Function'), row = 1, col = 1)
+                fig.add_trace(go.Scatter(x = dom[inds] * 1000, y = data['Weitzman_year' + str(y)][inds],
+                    name = 'High Damage Function', line = dict(color = 'green', dash='dash', width = 3), showlegend = True, visible = False, legendgroup = 'High Damage Function'), row = 1, col = 1)
+                fig.add_trace(go.Scatter(x = xs, y = ys, line = dict(color='#1f77b4', width=3, dash="dot"), visible = False, showlegend = True, name = 'Year{:d}'.format(y), legendgroup = "RE"), row = 2, col = 1)
+
+            else:
+                fig.add_trace(go.Scatter(x = dom[inds] * 1000, y = data['Nordhaus_year' + str(y)][inds],
+                    name = 'Low Damage Function', line = dict(color = 'red', dash='dashdot', width = 3), showlegend = True, visible = False, legendgroup = 'Low Damage Function'), row = 1, col = 1)
+                fig.add_trace(go.Scatter(x = dom[inds] * 1000, y = data['Weitzman_year' + str(y)][inds],
+                    name = 'High Damage Function', line = dict(color = 'green', dash='dash', width = 3), showlegend = True, visible = False, legendgroup = 'High Damage Function'), row = 1, col = 1)          
+                fig.add_trace(go.Scatter(x = xs, y = ys, line = dict(color='#1f77b4', width=3, dash="dot"), visible = False, showlegend = False, name = 'Year{:d}'.format(y), legendgroup = "RE"), row = 2, col = 1)
+
+        fig.add_trace(go.Scatter(x = dom[inds] * 1000, y = data['Original'][inds],
+                    name = 'Original Distribution', line = dict(color = '#1f77b4', width = 3), showlegend = True, legendgroup = 'Original Distribution'), row = 1, col = 1)
+        fig.add_trace(go.Scatter(x = x, y = self.preferenceModels['WeightedAverse']['REs']['RE'],
+                    name = 'Relative Entropies', line = dict(color = 'LightSeaGreen', width = 3), showlegend = True, legendgroup = 'RE'), row = 2, col = 1)
+
+        fig.data[-1].visible = True
+        fig.data[-2].visible = True
+        fig.data[240].visible = True
+        fig.data[241].visible = True
+        fig.data[242].visible = True
+
+
+        steps = []
+        for i in range(1,101):
+            step = dict(
+                method = 'restyle',
+                args = ['visible', [False] * len(fig.data)],
+                label = 'Year ' + "{:d}".format(i)
+                )
+            step['args'][1][-1] = True
+            step['args'][1][-2] = True
+            step['args'][1][i * 3 - 1] = True
+            step['args'][1][i * 3] = True
+            step['args'][1][i * 3 - 2] = True
+            # print(step['args'][1])
+
+            steps.append(step)
+
+        sliders = [dict(active = 80,
+            currentvalue = {"prefix": "Year： "},
+            pad = {"t": 50},
+            steps = steps)]
+
+
+        # print(line_data)
+        fig.update_layout(
+                    sliders = sliders, height = 800
+                    )
+        fig.update_xaxes(title_text='Years',row = 2, col = 1, titlefont=dict(size=16),
+                                             tickfont=dict(size=12), showgrid = False)
+        fig.update_xaxes(title_text='Climate Sensitivity',row = 1, col = 1, titlefont=dict(size=16),
+                                             tickfont=dict(size=12), showgrid = False)
+        fig.update_yaxes(title_text='Probability Density',row = 1, col = 1, titlefont=dict(size=16),
+                                             tickfont=dict(size=12), showgrid = False)
+        fig.update_yaxes(title_text='Relative Entropy',row = 2, col = 1, titlefont=dict(size=16),
+                                             tickfont=dict(size=12), showgrid = False)
+
+        fig.show()
+
+    def densityPlot(self, key = 'Weighted'):
+        years = [50, 75, 100]
+
+        titles = ["Year {}".format(year) for year in years]
+            
+        fig = make_subplots(1, len(years), print_grid = False, subplot_titles = titles)
+        if key == 'Growth':
+            dom = self.growthModels[key + 'Averse']['beta_f_space']
+        else:
+            dom = self.preferenceModels[key + 'Averse']['beta_f_space']
+        inds = ((dom>=0) & (dom<=5e-3))
+        for i, year in enumerate(years):
+            if key == 'Growth':
+                data = self.growthModels[key+ 'Averse']['Dists']
+            else:
+                data = self.preferenceModels[key+ 'Averse']['Dists']
+            if key == 'Weighted': 
+                if i == 0:
+                    fig.add_scatter(x = dom[inds] * 1000, y = data['Original'][inds], row = 1, col = i + 1,
+                        name = 'Original Distribution', line = dict(color = '#1f77b4', width = 3), showlegend = True, legendgroup = 'Original Distribution')
+                    fig.add_scatter(x = dom[inds] * 1000, y = data['Nordhaus_year' + str(year)][inds], row = 1, col = i + 1,
+                        name = 'Low Damage Function', line = dict(color = 'red', dash='dashdot', width = 3), showlegend = True, legendgroup = 'Low Damage Function')
+                    fig.add_scatter(x = dom[inds] * 1000, y = data['Weitzman_year' + str(year)][inds], row = 1, col = i + 1,
+                        name = 'High Damage Function', line = dict(color = 'green', dash='dash', width = 3), showlegend = True, legendgroup = 'High Damage Function')
+                else:
+                    fig.add_scatter(x = dom[inds] * 1000, y = data['Original'][inds], row = 1, col = i + 1,
+                        name = 'Original Distribution', line = dict(color = '#1f77b4', width = 3), showlegend = False, legendgroup = 'Original Distribution')
+                    fig.add_scatter(x = dom[inds] * 1000, y = data['Nordhaus_year' + str(year)][inds], row = 1, col = i + 1,
+                        name = 'Low Damage Function', line = dict(color = 'red', dash='dashdot', width = 3), showlegend = False, legendgroup = 'Low Damage Function')
+                    fig.add_scatter(x = dom[inds] * 1000, y = data['Weitzman_year' + str(year)][inds], row = 1, col = i + 1,
+                        name = 'High Damage Function', line = dict(color = 'green', dash='dash', width = 3), showlegend = False, legendgroup = 'High Damage Function')
+
+            elif key == 'High':
+                if i == 0:
+                    fig.add_scatter(x = dom[inds] * 1000, y = data['Original'][inds], row = 1, col = i + 1,
+                        name = 'Original Distribution', line = dict(color = '#1f77b4', width = 3), showlegend = True, legendgroup = 'Original Distribution')
+                    fig.add_scatter(x = dom[inds] * 1000, y = data['Weitzman_year' + str(year)][inds], row = 1, col = i + 1,
+                        name = 'High Damage Function', line = dict(color = 'green', dash='dash', width = 3), showlegend = True, legendgroup = 'High Damage Function')
+                else:
+                    fig.add_scatter(x = dom[inds] * 1000, y = data['Original'][inds], row = 1, col = i + 1,
+                        name = 'Original Distribution', line = dict(color = '#1f77b4', width = 3), showlegend = False, legendgroup = 'Original Distribution')
+                    fig.add_scatter(x = dom[inds] * 1000, y = data['Weitzman_year' + str(year)][inds], row = 1, col = i + 1,
+                        name = 'High Damage Function', line = dict(color = 'green', dash='dash', width = 3), showlegend = False, legendgroup = 'High Damage Function')
+
+
+            elif key == 'Low':
+                if i == 0:
+                    fig.add_scatter(x = dom[inds] * 1000, y = data['Original'][inds], row = 1, col = i + 1,
+                        name = 'Original Distribution', line = dict(color = '#1f77b4', width = 3), showlegend = True, legendgroup = 'Original Distribution')
+                    fig.add_scatter(x = dom[inds] * 1000, y = data['Nordhaus_year' + str(year)][inds], row = 1, col = i + 1,
+                        name = 'Low Damage Function', line = dict(color = 'red', dash='dashdot', width = 3), showlegend = True, legendgroup = 'Low Damage Function')
+                else:
+                    fig.add_scatter(x = dom[inds] * 1000, y = data['Original'][inds], row = 1, col = i + 1,
+                        name = 'Original Distribution', line = dict(color = '#1f77b4', width = 3), showlegend = False, legendgroup = 'Original Distribution')
+                    fig.add_scatter(x = dom[inds] * 1000, y = data['Nordhaus_year' + str(year)][inds], row = 1, col = i + 1,
+                        name = 'Low Damage Function', line = dict(color = 'red', dash='dashdot', width = 3), showlegend = False, legendgroup = 'Low Damage Function')
+
+        fig['layout'].update(title = key + " Damage Specification", showlegend = True, titlefont = dict(size = 20), height = 400)
+
+        for i in range(len(years)):
+            
+            fig['layout']['yaxis{}'.format(i+1)].update(showgrid = False)
+            fig['layout']['xaxis{}'.format(i+1)].update(showgrid = False)
+            
+        fig['layout']['yaxis1'].update(title=go.layout.yaxis.Title(
+                                        text="Probability Density", font=dict(size=16)))
+        fig['layout']['xaxis2'].update(title=go.layout.xaxis.Title(
+                                        text="Climate Sensitivity", font=dict(size=16)), showgrid = False)
+
+        fig = go.FigureWidget(fig)
+        iplot(fig)
+
+        # pio.write_image(fig, 'plots/Probability Densities for Climate Params {} Damage Case.pdf'.format(key), width=1500, height=600, scale=1)
+
+    def SCCinterp(self, ξ):
+        if ξ >= 0.01:
+            xiList = sorted(self.xiModels.keys())
+            func = RegularGridInterpolator((xiList, np.linspace(0,100,400)), self.SCCNets)
+            # print('RegularGridInterpolator')
+            return func(np.c_[ξ * np.ones(400), np.linspace(0,100,400)])
+        else:
+            xiList = sorted(self.xiModels.keys())
+            func = RectBivariateSpline(xiList, np.linspace(0,100,400), self.SCCNets)
+            return np.squeeze(func(ξ, np.linspace(0,100,400)))
+
+    def einterp(self, ξ):
+        
+        xiList = sorted(self.xiModels.keys())
+        func = RectBivariateSpline(xiList, np.linspace(0,100,400), self.eNets)
+        return np.squeeze(func(ξ, np.linspace(0,100,400)))
+
+    def SmoothPlot(self):
+        # colorscale=[ "rgb(165,0,38)",
+        #          "rgb(215,48,39)",
+        #          "rgb(244,109,67)",
+        #          "rgb(253,174,97)",
+        #          "rgb(255,160,122)",
+        #          "rgb(254,224,144)",
+        #          "rgb(224,243,248)",
+        #          "rgb(171,217,233)",
+        #          "rgb(116,173,209)",
+        #          "rgb(69,117,180)",
+        #          "rgb(49,54,149)"]
+
+        if self.SCCNets is not None:
+            subplots = make_subplots(rows = 2, cols = 1, 
+                    subplot_titles = ['Social Cost of Carbon',
+                                      'Emissions'],
+                                      vertical_spacing = 0.05)
+            fig = go.FigureWidget(subplots)
+            # line_data = []
+            x = np.linspace(0,100,400)
+            xiList = np.logspace(np.log10(1/4500), -2, 50)
+            for ξ in xiList:
+                fig.add_trace(go.Scatter(x = x, y = np.squeeze(self.SCCinterp(ξ)), visible = False,
+                               name = 'ξ = {:.6f}'.format(ξ), line = dict(color = "rgb(253,174,97)", dash='dash', width = 2),\
+                                       showlegend = True, legendgroup = 'Arbitrary ξ'), row = 1, col = 1)
+                fig.add_trace(go.Scatter(x = x, y = np.squeeze(self.einterp(ξ)), visible = False,
+                               name = 'ξ = {:.6f}'.format(ξ), line = dict(color = "rgb(253,174,97)", dash='dash', width = 2),\
+                                       showlegend = False, legendgroup = 'Arbitrary ξ'), row = 2, col = 1)
+                                       
+
+            # print(np.squeeze(self.SCCinterp(ξ)).shape)
+            fig.add_trace(go.Scatter(x = x, y = self.xiModels[1000]['SCCs']['SCC'], visible = True,
+                       name = 'Ambiguity Neutral', line = dict(color = "rgb(49,54,149)", dash='solid', width = 2),\
+                               showlegend = True), row = 1, col = 1)
+            
+            fig.add_trace(go.Scatter(x = x, y = np.squeeze(self.xiModels[1000]['emissions']), visible = True,
+                       name = 'Ambiguity Neutral', line = dict(color = "rgb(49,54,149)", dash='solid', width = 2),\
+                               showlegend = False), row = 2, col = 1)
+
+            fig.add_trace(go.Scatter(x = x, y = self.xiModels[1 / 4500]['SCCs']['SCC'], visible = True,\
+                           name = 'Ambiguity Averse', line = dict(color = "rgb(165,0,38)", dash='solid', width = 2),\
+                                   showlegend = True), row = 1, col = 1)
+            fig.add_trace(go.Scatter(x = x, y = np.squeeze(self.xiModels[1 / 4500]['emissions']), visible = True,\
+                           name = 'Ambiguity Averse', line = dict(color = "rgb(165,0,38)", dash='solid', width = 2),\
+                                   showlegend = False), row = 2, col = 1)
+
+            fig.data[10].visible = True
+            fig.data[9].visible = True
+
+            steps = []
+            for i in range(50):
+                step = dict(
+                    method = 'restyle',
+                    args = ['visible', [False] * len(fig.data)],
+                    label = 'ξ = ' + "{:.4f}".format(xiList[i])
+                    )
+                step['args'][1][2*i] = True
+                step['args'][1][2*i + 1] = True
+                step['args'][1][-1] = True
+                step['args'][1][-2] = True
+                step['args'][1][-3] = True
+                step['args'][1][-4] = True
+                # print(step['args'][1])
+
+                steps.append(step)
+
+            sliders = [dict(active = 5,
+                currentvalue = {"prefix": "ξ： "},
+                pad = {"t": 50},
+                steps = steps)]
+
+
+            # print(line_data)
+            fig.update_layout(
+                      sliders = sliders,
+                      height = 800
+                      )
+            fig.update_xaxes(title_text='Years',row = 2, col = 1, titlefont=dict(size=16),
+                                             tickfont=dict(size=12), showgrid = False)
+
+
+
+            fig.show()
+            # fig = dict(data = line_data, layout = layout)
+            # iplot(fig)
+
+
+        else:
+            print('Models for different ξ was not initiated yet.')
+
+    def SCCSmoothPlot(self):
+        if self.SCCNets is not None:
+            fig = go.Figure()
+            # line_data = []
+            x = np.linspace(0,100,400)
+            xiList = np.logspace(np.log10(1/4500), -2, 50)
+            for ξ in xiList:
+                fig.add_trace(go.Scatter(x = x, y = np.squeeze(self.SCCinterp(ξ)), visible = False,
+                               name = 'ξ = {:.6f}'.format(ξ), line = dict(color = "rgb(253,174,97)", dash='dash', width = 2),\
+                                       showlegend = True, legendgroup = 'Arbitrary ξ'))
+
+            # print(np.squeeze(self.SCCinterp(ξ)).shape)
+            fig.add_trace(go.Scatter(x = x, y = self.xiModels[1000]['SCCs']['SCC'], visible = True,
+                       name = 'Ambiguity Neutral', line = dict(color = "rgb(49,54,149)", dash='solid', width = 2),\
+                               showlegend = True))
+
+            fig.add_trace(go.Scatter(x = x, y = self.xiModels[1 / 4500]['SCCs']['SCC'], visible = True,\
+                           name = 'Ambiguity Averse', line = dict(color = "rgb(165,0,38)", dash='solid', width = 2),\
+                                   showlegend = True))
+
+            fig.data[10].visible = True
+
+            steps = []
+            for i in range(50):
+                step = dict(
+                    method = 'restyle',
+                    args = ['visible', [False] * len(fig.data)],
+                    label = 'ξ = ' + "{:.4f}".format(xiList[i])
+                    )
+                step['args'][1][i] = True
+                step['args'][1][-1] = True
+                step['args'][1][-2] = True
+                # print(step['args'][1])
+
+                steps.append(step)
+
+            sliders = [dict(active = 10,
+                currentvalue = {"prefix": "ξ： "},
+                pad = {"t": 50},
+                steps = steps)]
+
+
+            # print(line_data)
+            fig.update_layout(title = 'Social Cost of Carbon Comparison',
+                      titlefont = dict(size = 20),
+                      xaxis = go.layout.XAxis(title=go.layout.xaxis.Title(
+                                        text='Years', font=dict(size=16)),
+                                             tickfont=dict(size=12), showgrid = False),
+                      yaxis = go.layout.YAxis(title=go.layout.yaxis.Title(
+                                        text='Dollars per Ton of Carbon', font=dict(size=16)),
+                                             tickfont=dict(size=12), showgrid = False),
+                      sliders = sliders
+                      )
+
+
+
+            fig.show()
+            # fig = dict(data = line_data, layout = layout)
+            # iplot(fig)
+
+
+        else:
+            print('Models for different ξ was not initiated yet.')
+
+    def SCCPlot(self, damageSpecs = ['High','Low','Weighted'], aversionSpecs = ['Averse'], key = 'CrossModel', spec = 'Preference'):
+        if spec == 'Growth':
+            print('Growth Specification was not supported for this function.')
+        else:
+            mdl = self.preferenceModels
+            titlesuff = ''
+            if key == 'CrossModel':
+
+                colors = {'High': 'red', 'Low': 'green', 'Weighted': '#1f77b4'}
+                lines = {'Averse': 'solid', "Neutral": 'dashdot'}
+
+                line_data = []
+
+                for i, ds in enumerate(damageSpecs):
+                    for j, avs in enumerate(aversionSpecs):
+                        data = mdl[ds + avs]['SCCs']
+
+                        total_SCC = np.array(data['SCC'])
+                        
+                        x = np.linspace(0,100,400)
+
+                        line_data.append(go.Scatter(x = x, y = total_SCC,
+                                    name = ds + ' Damage w/ Ambiguity ' + avs, line = dict(color = colors[ds], dash=lines[avs], width = 2),\
+                                        showlegend = True))  
+                    
+                # annotations=[dict(x=80, text="Weighted", textangle=0, ax=-100,
+                #         ay=-75, font=dict(color="black", size=12), arrowcolor="black",
+                #         arrowsize=3, arrowwidth=1, arrowhead=1),
+
+                #         dict(x=80, y=302, text="Low Damage", textangle=0, ax=100,
+                #         ay=50, font=dict(color="black", size=12), arrowcolor="black",
+                #         arrowsize=3, arrowwidth=1, arrowhead=1),
+                            
+                #         dict(x=85, y=720, text="High Damage", textangle=0, ax=-100,
+                #         ay=-75, font=dict(color="black", size=12), arrowcolor="black",
+                #         arrowsize=3, arrowwidth=1, arrowhead=1)]
+
+                layout = dict(title = 'Social Cost of Carbon Comparison' + titlesuff,
+                            titlefont = dict(size = 24),
+                            xaxis = go.layout.XAxis(title=go.layout.xaxis.Title(
+                                                text='Years', font=dict(size=16)),
+                                                    tickfont=dict(size=12), showgrid = False),
+                            yaxis = go.layout.YAxis(title=go.layout.yaxis.Title(
+                                                text='Dollars per Ton of Carbon', font=dict(size=16)),
+                                                    tickfont=dict(size=12), showgrid = False),
+                            # annotations = annotations
+                            legend = dict(orientation = 'h', y = 1.1)
+                            )
+
+                    
+                fig = go.Figure(data = line_data, layout = layout)
+                fig.show()
+
+            elif key == 'CrossAmbiguityAversion':
+
+                if len(self.xiModels) == 0:
+                    line_data = []
+                    
+                    x = np.linspace(0,100,400)
+
+                    line_data.append(go.Scatter(x = x, y = self.preferenceModels['WeightedAverse']['SCCs']['SCC'],
+                            name = 'Ambiguity Averse', line = dict(color = '#1f77b4', dash='solid', width = 4),\
+                                    showlegend = False))
+
+                    line_data.append(go.Scatter(x = x, 
+                                            y = self.preferenceModels['WeightedNeutral']['SCCs']['SCC'], 
+                                            name = "Ambiguity Neutral", 
+                                            line = dict(color = "red", dash='dash', width = 4),
+                                            showlegend = False))
+
+                    annotations=[dict(x=80, y=580, text="Ambiguity Averse", textangle=0, ax=-100,
+                        ay=-75, font=dict(color="black", size=12), arrowcolor="black",
+                        arrowsize=3, arrowwidth=1, arrowhead=1),
+
+                        dict(x=80, y=420, text="Ambiguity Neutral", textangle=0, ax=100,
+                        ay=75, font=dict(color="black", size=12), arrowcolor="black",
+                        arrowsize=3, arrowwidth=1, arrowhead=1)]
+
+                    layout = dict(title = 'Social Cost of Carbon Comparison',
+                            titlefont = dict(size = 24),
+                            xaxis = go.layout.XAxis(title=go.layout.xaxis.Title(
+                                                text='Years', font=dict(size=16)),
+                                                    tickfont=dict(size=12), showgrid = False, showline = False),
+                            yaxis = go.layout.YAxis(title=go.layout.yaxis.Title(
+                                                text='Dollars per Ton of Carbon', font=dict(size=16)),
+                                                    tickfont=dict(size=12), showgrid = False),
+                            annotations = annotations
+                            )
+
+
+                    fig = dict(data = line_data, layout = layout)
+                    iplot(fig)
+
+                else:
+                    xiList = [ 1 / 4500, 0.0003, 0.0004, 0.0006, 0.001, 0.002, 0.005, 1, 100, 1000]
+                    colorscale=[ "rgb(165,0,38)",
+                    # "rgb(190,20,38)",
+                    "rgb(215,48,39)",
+                    "rgb(244,109,67)",
+                    "rgb(253,174,97)",
+                    # "rgb(255,160,122)",
+                    "rgb(254,224,144)",
+                    # "rgb(224,243,248)",
+                    "rgb(171,217,233)",
+                    "rgb(130,180,210)",
+                    "rgb(90,140,195)",
+                    # "rgb(116,173,209)",
+                    "rgb(69,117,180)",
+                    "rgb(49,54,149)"]
+
+                    line_data = []
+
+                    x = np.linspace(0,100,400)
+                    for i, ξ in enumerate(xiList):
+                        if i == len(xiList) - 1:
+                            line_data.append(go.Scatter(x = x, y = self.xiModels[ξ]['SCCs']['SCC'],
+                            name = 'Ambiguity Neutral', line = dict(color = colorscale[i], dash='solid', width = 2),\
+                                    showlegend = True))
+
+                        elif i == 0 :
+                            line_data.append(go.Scatter(x = x, y = self.preferenceModels['WeightedAverse']['SCCs']['SCC'],
+                                name = 'ξ = {:.4f}'.format(self.preferenceModels['WeightedAverse']['ξp']), line = dict(color = colorscale[i], dash='solid', width = 2),\
+                                        showlegend = True))
+                        else:
+                            line_data.append(go.Scatter(x = x, y = self.xiModels[ξ]['SCCs']['SCC'],
+                                name = 'ξ = {:.4f}'.format(ξ), line = dict(color = colorscale[i], dash='dashdot', width = 2),\
+                                        showlegend = True))
+                    # print(line_data)
+                    layout = dict(title = 'Social Cost of Carbon Comparison',
+                            titlefont = dict(size = 20),
+                            xaxis = go.layout.XAxis(title=go.layout.xaxis.Title(
+                                                text='Years', font=dict(size=16)),
+                                                    tickfont=dict(size=12), showgrid = False),
+                            yaxis = go.layout.YAxis(title=go.layout.yaxis.Title(
+                                                text='Dollars per Ton of Carbon', font=dict(size=16)),
+                                                    tickfont=dict(size=12), showgrid = False)
+                            )
+
+
+                    fig = dict(data = line_data, layout = layout)
+                    iplot(fig)
+
+    def SCCDecomposePlot(self, key = 'Weighted', spec = 'Preference'):
+        if spec == 'Growth':
+            pass
+        elif spec == 'Preference':
+            if key == 'Low':
+
+                data = self.preferenceModels['LowAverse']['SCCs']
+                x1, y1, x2, y2, x3, y3 = 60, 195, 93, 330, 96, 80
+
+            elif key == 'Weighted':
+
+                data = self.preferenceModels['WeightedAverse']['SCCs']
+                x1, y1, x2, y2, x3, y3 = 60, 320, 80, 315, 90, 350
+
+            elif key == 'High':
+
+                data = self.preferenceModels['HighAverse']['SCCs']
+                x1, y1, x2, y2, x3, y3 = 60, 340, 93, 495, 96, 380
+
+
+            total_SCC = np.array(data['SCC'])
+            external_SCC = np.array(data['SCC2'])
+            uncertainty_SCC = np.array(data['SCC3'])
+            private_SCC = np.array(data['SCC1'])
+            x = np.linspace(0,100,400)
+
+            total = go.Scatter(x = x, y = total_SCC,
+                        name = 'Total', line = dict(color = '#1f77b4', dash = 'solid', width = 3),\
+                            showlegend = False)
+            external = go.Scatter(x = x, y = external_SCC,
+                        name = 'Unvertainty', line = dict(color = 'red', dash = 'dot', width = 3),\
+                                showlegend = False)
+            uncertainty = go.Scatter(x = x, y = uncertainty_SCC,
+                        name = 'External', line = dict(color = 'green', dash = 'dashdot', width = 3),\
+                                    showlegend = False)
+            private = go.Scatter(x = x, y = private_SCC,
+                        name = 'Private', line = dict(color = 'black', width = 3),\
+                                showlegend = False)
+
+            annotations=[dict(x=x1, y=y1, text="Total", textangle=0, ax=-100,
+                        ay=-75, font=dict(color="black", size=12), arrowcolor="black",
+                        arrowsize=3, arrowwidth=1, arrowhead=1),
+                        
+                        dict(x=x2, y=y2, text="Uncertainty", textangle=0, ax=-100,
+                        ay=0, font=dict(color="black", size=12), arrowcolor="black",
+                        arrowsize=3, arrowwidth=1, arrowhead=1),
+                        
+                        dict(x=x3, y=y3, text="External", textangle=0, ax=-70,
+                        ay=50, font=dict(color="black", size=12), arrowcolor="black",
+                        arrowsize=3, arrowwidth=1, arrowhead=1)]
+
+            layout = dict(title = 'Social Cost of Carbon, {} Damage Specification'.format(key),
+                        titlefont = dict(size = 24),
+                        xaxis = go.layout.XAxis(title=go.layout.xaxis.Title(
+                                            text='Years', font=dict(size=16)),
+                                                tickfont=dict(size=12), showgrid = False),
+                        yaxis = go.layout.YAxis(title=go.layout.yaxis.Title(
+                                            text='Dollars per Ton of Carbon', font=dict(size=16)),
+                                                tickfont=dict(size=12), showgrid = False), 
+                        annotations=annotations
+                        )
+
+            fig = dict(data = [total, external, uncertainty], layout = layout)
+            iplot(fig)
+
+            fig['layout'].update(title = None)
+
+    def emissionPlot(self, damageSpecs = ['High','Low','Weighted'], aversionSpecs = ['Averse']):
+
+        colors = {'High': 'red', 'Low': 'green', 'Weighted': '#1f77b4'}
+        lines = {'Averse': 'solid', "Neutral": 'dashdot'}
+
+        # damageSpecs = ['High', 'Low', 'Weighted']
+        # aversionSpecs = ['Averse', 'Neutral']
+        # colors = ['green', '#1f77b4', 'red']
+        # lines = ['solid', 'dashdot'] 
+
+        x = np.linspace(0, 100, 400)
+        data = []
+
+        for ds in damageSpecs:
+            for avs in aversionSpecs:
+                data.append(go.Scatter(x = x, y = self.preferenceModels[ds + avs]['emissions'][:,0], name = ds + ' Damage w/ Ambiguity ' + avs,
+                    line = dict(width = 2, dash = lines[avs], color = colors[ds]), showlegend = True))
+
+        layout = dict(title = 'Emissions Comparison',
+          titlefont = dict(size = 24),
+          xaxis = go.layout.XAxis(title=go.layout.xaxis.Title(
+                            text='Years', font=dict(size=16)),
+                                 tickfont=dict(size=12), showgrid = False, showline = True),
+          yaxis = go.layout.YAxis(title=go.layout.yaxis.Title(
+                            text='Gigatons of Carbon', font=dict(size=16)),
+                                 tickfont=dict(size=12), showgrid = False),
+          legend = dict(orientation = 'h', y = 1.15)
+          )
+
+        fig = go.Figure(data = data, layout = layout)
+        # figw = go.FigureWidget(fig)
+        # display(figw)
+        fig.show()
+
+    def Figure3(self):
+        fig = go.Figure()
+        x = np.arange(0, 5 + 0.01, 0.01)
+        y_w = (1 / (1 + (x / 20.46) **2 + (x / 6.081) ** 6.754))
+        y_n = (1 / (1 + 0.00227 * x ** 2))
+        yhat_w, yhat_n, Tbar, coeffs = piecewise_est(x, y_w, y_n, 2)
+
+        fig.add_trace(go.Scatter(x = x, y = yhat_n, name = 'Low Damages',
+                                line = dict(width = 3), showlegend = False))
+        fig.add_trace(go.Scatter(x = x, y = yhat_w, name = "High Damages", 
+                     line = dict(width = 3, dash='dash', color = 'red'), showlegend = False))
+
+        fig.update_xaxes(title_text = 'Temperature Increment over Pre-Industrial Levels (˚C)')
+        fig.update_yaxes(title_text = 'Proportional Reduction in Economic Welfare', range = [0.8,1.01])
+        fig['layout'].update(shapes = [go.layout.Shape(type = 'line', xref = 'x1', yref = 'y1', x0 = 2, x1 = 2, y0 = 0, y1 = 1)])
+        fig.update_layout(title = 'Economic Damage Uncertainty',
+                    titlefont = dict(size = 20))
+        fig['layout']['annotations'] += tuple(
+            [
+            dict(
+                x = 3.6, y = .92, text = 'High Damage', textangle = 0, ax = -100, ay = 75, showarrow = True,  font = dict(color = 'black', size = 12), arrowsize = 2, arrowwidth = 1, arrowhead = 1,),
+            dict(
+                x = 4, y = .96, text = 'Low Damage', textangle = 0, ax = 75, ay = 25, showarrow = True, font = dict(color = 'black', size = 12), arrowsize = 2, arrowwidth = 1, arrowhead = 1 ),
+            dict(
+                x = 1.98, y = .85, text = 'Carbon Budget', textangle = 0, ax = -100, ay = 0, showarrow = True, font = dict(color = 'black', size = 12), arrowsize = 2, arrowwidth = 1, arrowhead = 1)
+            ]
+            )
+        fig.show()
+    
+    def Figure3a(self):
+        colors = {'High': 'red', 'Low': 'green', 'Weighted': '#1f77b4'}
+
+        fig = go.Figure()
+        x = np.arange(0, 5 + 0.01, 0.01)
+        y_w = (1 / (1 + (x / 20.46) **2 + (x / 6.081) ** 6.754))
+        y_n = (1 / (1 + 0.00227 * x ** 2))
+        yhat_w, yhat_n, Tbar, coeffs = piecewise_est(x, y_w, y_n, 2)
+
+        x = np.arange(0, 2.51, 0.01)
+        
+        def line_nordhaus(beta):
+            return coeffs[0] * x * beta + coeffs[1] * (x * beta)**2
+
+        def line_weitzman(beta):
+            return coeffs[0] * x * beta + coeffs[1] * (x * beta)**2 + coeffs[2] * (x * beta - 2)**2 * (x * beta > 2)
+
+        σ, μ = gen_distributions(0.0001)
+
+        Int_nordhaus = quad_int(line_nordhaus, σ, μ, 150, 'hermite')
+        Int_weitzman = quad_int(line_weitzman, σ, μ, 150, 'hermite')
+
+        fig.add_trace(go.Scatter(x = x, y = np.exp(Int_nordhaus), name = 'Low Damage', line = dict(width = 3, color = colors['Low']), showlegend = False))
+        fig.add_trace(go.Scatter(x = x, y = np.exp(0.5 * Int_nordhaus + 0.5 * Int_weitzman), name = 'Weighted', line = dict(width = 3, dash = 'dashdot', color = colors['Weighted']), showlegend = False))
+        fig.add_trace(go.Scatter(x = x, y = np.exp(Int_weitzman), name = 'High Damage', line = dict(width = 3, dash = 'dash', color = colors['High']), showlegend = False))
+
+        fig.update_xaxes(title_text = 'F: Cumulative Emissions')
+        fig.update_yaxes(title_text = 'Proportional Reduction in Economic Welfare')
+        fig.update_layout(title = 'Proportional Damage Uncertainty',
+                    titlefont = dict(size = 20))
+        fig['layout']['annotations'] += tuple(
+            [
+            dict(
+                x = 1.5, y = .958, text = 'High Damage', textangle = 0, ax = -100, ay = 75, showarrow = True, font = dict(color = 'black', size = 12), arrowsize = 2, arrowwidth = 1, arrowhead = 1    ),
+            dict(
+                x = 1.8, y = .953, text = 'Weighted', textangle = 0, ax = -100, ay = 75, showarrow = True, font = dict(color = 'black', size = 12), arrowsize = 2, arrowwidth = 1, arrowhead = 1 ),
+            dict(
+                x = 2, y = .973, text = 'Low Damage', textangle = 0, ax = 80, ay = -20, showarrow = True, font = dict(color = 'black', size = 12), arrowsize = 2, arrowwidth = 1, arrowhead = 1)
+            ]
+            )
+        fig.show()
+
+    def Figure4(self):
+        fig = go.Figure()
+        x = np.arange(0, 5.01, 0.1)
+        dec2, dec4, dec6, dec8 = Burke_bootstrap(x, 100000)
+
+        fig.add_trace(go.Scatter(x = x, y = dec8, name = '80th Decile', line = dict(width = 3, color = "rgb(49,54,149)"), showlegend = False))
+        fig.add_trace(go.Scatter(x = x, y = dec6, name = '60th Decile', line = dict(width = 3, color = "rgb(116,173,209)"), showlegend = False))
+        fig.add_trace(go.Scatter(x = x, y = dec4, name = '40th Decile', line = dict(width = 3, color = "rgb(244,109,67)"), showlegend = False))
+        fig.add_trace(go.Scatter(x = x, y = dec2, name = '20th Decile', line = dict(width = 3, color = "rgb(165,0,38)"), showlegend = False))
+
+        fig.update_xaxes(title_text = 'Temperature Increment over Pre-Industrial Levels (˚C)')
+        fig.update_yaxes(title_text = 'Growth Rate Impact')
+        fig.update_layout(title = 'Macroeconomic Growth Rate Damages',
+                    titlefont = dict(size = 20))
+        fig.show()
+
+    def preliminaryPlots(self):
+
+        colors = {'High': 'red', 'Low': 'green', 'Weighted': '#1f77b4'}
+        subplots = make_subplots(rows = 3, cols = 1, 
+                    subplot_titles = ['Economic Damage Uncertainty',
+                                      'Proportional Damage Uncertainty',
+                                      'Macroeconomic Growth Rate Damages'])
+        fig = go.FigureWidget(subplots)
+
+        # Economic Damage Uncertainity
+        x = np.arange(0, 5 + 0.01, 0.01)
+        y_w = (1 / (1 + (x / 20.46) **2 + (x / 6.081) ** 6.754))
+        y_n = (1 / (1 + 0.00227 * x ** 2))
+        yhat_w, yhat_n, Tbar, coeffs = piecewise_est(x, y_w, y_n, 2)
+
+        fig.add_trace(go.Scatter(x = x, y = yhat_n, name = 'Low Damages',
+                                line = dict(width = 3), showlegend = False), row = 1, col = 1)
+        fig.add_trace(go.Scatter(x = x, y = yhat_w, name = "High Damages", 
+                     line = dict(width = 3, dash='dash', color = 'red'), showlegend = False), row = 1, col = 1)
+
+        fig.update_xaxes(title_text = 'Temperature Increment over Pre-Industrial Levels (˚C)', row = 1 , col = 1)
+        fig.update_yaxes(title_text = 'Proportional Reduction in Economic Welfare', range = [0.8,1.01], row = 1, col = 1)
+        fig['layout'].update(shapes = [go.layout.Shape(type = 'line', xref = 'x1', yref = 'y1', x0 = 2, x1 = 2, y0 = 0, y1 = 1)])
+
+        # Proportional Damage Uncertainty
+        x = np.arange(0, 2.51, 0.01)
+        def line_nordhaus(beta):
+            return coeffs[0] * x * beta + coeffs[1] * (x * beta)**2
+
+        def line_weitzman(beta):
+            return coeffs[0] * x * beta + coeffs[1] * (x * beta)**2 + coeffs[2] * (x * beta - 2)**2 * (x * beta > 2)
+
+        σ, μ = gen_distributions(0.0001)
+
+        Int_nordhaus = quad_int(line_nordhaus, σ, μ, 150, 'hermite')
+        Int_weitzman = quad_int(line_weitzman, σ, μ, 150, 'hermite')
+
+        fig.add_trace(go.Scatter(x = x, y = np.exp(Int_nordhaus), name = 'Low Damage', line = dict(width = 3, color = colors['Low']), showlegend = False), row = 2, col = 1)
+        fig.add_trace(go.Scatter(x = x, y = np.exp(0.5 * Int_nordhaus + 0.5 * Int_weitzman), name = 'Weighted', line = dict(width = 3, dash = 'dashdot', color = colors['Weighted']), showlegend = False), row = 2, col = 1)
+        fig.add_trace(go.Scatter(x = x, y = np.exp(Int_weitzman), name = 'High Damage', line = dict(width = 3, dash = 'dash', color = colors['High']), showlegend = False), row = 2, col = 1)
+
+        fig.update_xaxes(title_text = 'F: Cumulative Emissions', row = 2, col = 1)
+        fig.update_yaxes(title_text = 'Proportional Reduction in Economic Welfare', row = 2, col = 1)
+
+        # Macro Growth-Rate Damages
+        x = np.arange(0, 5.01, 0.1)
+        dec2, dec4, dec6, dec8 = Burke_bootstrap(x, 100000)
+
+        fig.add_trace(go.Scatter(x = x, y = dec8, name = '80th Decile', line = dict(width = 3, color = "rgb(49,54,149)"), showlegend = False), row = 3, col = 1)
+        fig.add_trace(go.Scatter(x = x, y = dec6, name = '60th Decile', line = dict(width = 3, color = "rgb(116,173,209)"), showlegend = False), row = 3, col = 1)
+        fig.add_trace(go.Scatter(x = x, y = dec4, name = '40th Decile', line = dict(width = 3, color = "rgb(244,109,67)"), showlegend = False), row = 3, col = 1)
+        fig.add_trace(go.Scatter(x = x, y = dec2, name = '20th Decile', line = dict(width = 3, color = "rgb(165,0,38)"), showlegend = False), row = 3, col = 1)
+
+        fig.update_xaxes(title_text = 'Temperature Increment over Pre-Industrial Levels (˚C)', row = 3, col = 1)
+        fig.update_yaxes(title_text = 'Growth Rate Impact', row = 3, col = 1)
+
+        fig['layout']['annotations'] += tuple(
+            [
+            dict(
+                x = 3.6, y = .92, text = 'High Damage', textangle = 0, ax = -100, ay = 75, showarrow = True,  font = dict(color = 'black', size = 12), arrowsize = 2, arrowwidth = 1, arrowhead = 1, xref = 'x1', yref = 'y1'
+                ),
+            dict(
+                x = 4, y = .96, text = 'Low Damage', textangle = 0, ax = 75, ay = 25, showarrow = True, font = dict(color = 'black', size = 12), arrowsize = 2, arrowwidth = 1, arrowhead = 1, xref = 'x1', yref = 'y1'
+                ),
+            dict(
+                x = 1.98, y = .85, text = 'Carbon Budget', textangle = 0, ax = -100, ay = 0, showarrow = True, font = dict(color = 'black', size = 12), arrowsize = 2, arrowwidth = 1, arrowhead = 1, xref = 'x1', yref = 'y1'
+                ),
+            dict(
+                x = 1.5, y = .958, text = 'High Damage', textangle = 0, ax = -100, ay = 75, showarrow = True, font = dict(color = 'black', size = 12), arrowsize = 2, arrowwidth = 1, arrowhead = 1, xref = 'x2', yref = 'y2'
+                ),
+            dict(
+                x = 1.8, y = .953, text = 'Weighted', textangle = 0, ax = -100, ay = 75, showarrow = True, font = dict(color = 'black', size = 12), arrowsize = 2, arrowwidth = 1, arrowhead = 1, xref = 'x2', yref = 'y2'
+                ),
+            dict(
+                x = 2, y = .973, text = 'Low Damage', textangle = 0, ax = 80, ay = -20, showarrow = True, font = dict(color = 'black', size = 12), arrowsize = 2, arrowwidth = 1, arrowhead = 1, xref = 'x2', yref = 'y2'
+                )
+            ]
+            )
+
+        fig.update_layout(height=1000, title_text='Damage Specifications', titlefont = dict(size = 20))
+
+
+        fig.show()
+        
 
 class modelSolutions():
 
@@ -201,7 +1003,7 @@ class modelSolutions():
         if os.path.isfile('./data/HighAverse.pickle'):
             self.models['HighAverse'] = pickle.load(open("./data/HighAverse.pickle", "rb", -1))
         else:
-            self.prefParams['ξₚ'] = 1 / 4000
+            self.prefParams['ξp'] = 1 / 4000
             key = 'HighAverse'
             print('-------' + key + '-------')
             self.models[key] = preferenceModel(self.prefParams, self.prefSpecs)
@@ -216,7 +1018,7 @@ class modelSolutions():
         if os.path.isfile('./data/HighNeutral.pickle'):
             self.models['HighNeutral'] = pickle.load(open("./data/HighNeutral.pickle", "rb", -1))
         else:
-            self.prefParams['ξₚ'] = 1 / 0.001
+            self.prefParams['ξp'] = 1 / 0.001
             key = 'HighNeutral'
             print('-------' + key + '-------')
             self.models[key] = preferenceModel(self.prefParams, self.prefSpecs)
@@ -229,7 +1031,7 @@ class modelSolutions():
         if os.path.isfile('./data/LowAverse.pickle'):
             self.models['LowAverse'] = pickle.load(open("./data/LowAverse.pickle", "rb", -1))
         else:
-            self.prefParams['ξₚ'] = 1 / 4000
+            self.prefParams['ξp'] = 1 / 4000
             preferenceSpecs['ε'] = 0.05
             key = 'LowAverse'
             print('-------' + key + '-------')
@@ -246,7 +1048,7 @@ class modelSolutions():
             self.models['LowNeutral'] = pickle.load(open("./data/LowNeutral.pickle", "rb", -1))
         else:
             preferenceSpecs['ε'] = 0.01
-            self.prefParams['ξₚ'] = 1 / 0.001
+            self.prefParams['ξp'] = 1 / 0.001
             key = 'LowNeutral'
             print('-------' + key + '-------')
             self.models[key] = preferenceModel(self.prefParams, self.prefSpecs)
@@ -260,7 +1062,7 @@ class modelSolutions():
         if os.path.isfile('./data/WeightedAverse.pickle'):
             self.models['WeightedAverse'] = pickle.load(open("./data/WeightedAverse.pickle", "rb", -1))
         else:
-            self.prefParams['ξₚ'] = 1 / 4000
+            self.prefParams['ξp'] = 1 / 4000
             preferenceSpecs['ε'] = 0.1
             key = 'WeightedAverse'
             print('-------' + key + '-------')
@@ -275,7 +1077,7 @@ class modelSolutions():
         if os.path.isfile('./data/WeightedNeutral.pickle'):
             self.models['WeightedNeutral'] = pickle.load(open("./data/WeightedNeutral.pickle", "rb", -1))
         else:
-            self.prefParams['ξₚ'] = 1 / 0.001
+            self.prefParams['ξp'] = 1 / 0.001
             key = 'WeightedNeutral'
             print('-------' + key + '-------')
             self.models[key] = preferenceModel(self.prefParams, self.prefSpecs)
@@ -289,7 +1091,7 @@ class modelSolutions():
         if os.path.isfile('./data/HighAverseComp.pickle'):
             self.compmodels['HighAverseComp'] = pickle.load(open("./data/HighAverseComp.pickle", "rb", -1))
         else:
-            self.compParams['ξₚ'] = 1 / 4500
+            self.compParams['ξp'] = 1 / 4500
             self.compmodels['HighAverseComp'] = competitiveModel(self.compParams, self.compSpecs, self.models['HighAverse'])
             self.compmodels['HighAverseComp'].solveHJB('High')
             self.compmodels['HighAverseComp'].Simulate(self.method)
@@ -301,7 +1103,7 @@ class modelSolutions():
         if os.path.isfile('./data/HighNeutralComp.pickle'):
             self.compmodels['HighNeutralComp'] = pickle.load(open("./data/HighNeutralComp.pickle", "rb", -1))
         else:
-            self.compParams['ξₚ'] = 1 / 0.001
+            self.compParams['ξp'] = 1 / 0.001
             self.compmodels['HighNeutralComp'] = competitiveModel(self.compParams, self.compSpecs, self.models['HighNeutral'])
             self.compmodels['HighNeutralComp'].solveHJB('High')
             self.compmodels['HighNeutralComp'].Simulate(self.method)
@@ -314,7 +1116,7 @@ class modelSolutions():
         if os.path.isfile('./data/LowAverseComp.pickle'):
             self.compmodels['LowAverseComp'] = pickle.load(open("./data/LowAverseComp.pickle", "rb", -1))
         else:
-            self.compParams['ξₚ'] = 1 / 4500
+            self.compParams['ξp'] = 1 / 4500
             self.compmodels['LowAverseComp'] = competitiveModel(self.compParams, self.compSpecs, self.models['LowAverse'])
             self.compmodels['LowAverseComp'].solveHJB('Low')
             self.compmodels['LowAverseComp'].Simulate(self.method)
@@ -326,7 +1128,7 @@ class modelSolutions():
         if os.path.isfile('./data/LowNeutralComp.pickle'):
             self.compmodels['LowNeutralComp'] = pickle.load(open("./data/LowNeutralComp.pickle", "rb", -1))
         else:
-            self.compParams['ξₚ'] = 1 / 0.001
+            self.compParams['ξp'] = 1 / 0.001
             self.compmodels['LowNeutralComp'] = competitiveModel(self.compParams, self.compSpecs, self.models['LowNeutral'])
             self.compmodels['LowNeutralComp'].solveHJB('Low')
             self.compmodels['LowNeutralComp'].Simulate(self.method)
@@ -338,7 +1140,7 @@ class modelSolutions():
         if os.path.isfile('./data/WeightedAverseComp.pickle'):
             self.compmodels['WeightedAverseComp'] = pickle.load(open("./data/WeightedAverseComp.pickle", "rb", -1))
         else:
-            self.compParams['ξₚ'] = 1 / 4500
+            self.compParams['ξp'] = 1 / 4500
             self.compmodels['WeightedAverseComp'] = competitiveModel(self.compParams, self.compSpecs, self.models['WeightedAverse'])
             self.compmodels['WeightedAverseComp'].solveHJB('Weighted')
             self.compmodels['WeightedAverseComp'].Simulate(self.method)
@@ -350,7 +1152,7 @@ class modelSolutions():
         if os.path.isfile('./data/WeightedNeutralComp.pickle'):
             self.compmodels['WeightedNeutralComp'] = pickle.load(open("./data/WeightedNeutralComp.pickle", "rb", -1))
         else:
-            self.compParams['ξₚ'] = 1 / 0.001
+            self.compParams['ξp'] = 1 / 0.001
             self.compmodels['WeightedNeutralComp'] = competitiveModel(self.compParams, self.compSpecs, self.models['WeightedNeutral'])
             self.compmodels['WeightedNeutralComp'].solveHJB('Weighted')
             self.compmodels['WeightedNeutralComp'].Simulate(self.method)
@@ -363,7 +1165,7 @@ class modelSolutions():
         if os.path.isfile('./data/GrowthAverse.pickle'):
             self.growthmodels['GrowthAverse'] = pickle.load(open("./data/GrowthAverse.pickle", "rb", -1))
         else:
-            self.growthParams['ξₚ'] = 1 / 175
+            self.growthParams['ξp'] = 1 / 175
             key = 'GrowthAverse'
             print('-------' + key + '-------')
             self.growthmodels[key] = growthModel(self.growthParams, self.growthSpecs)
@@ -379,7 +1181,7 @@ class modelSolutions():
         if os.path.isfile('./data/GrowthNeutral.pickle'):
             self.growthmodels['GrowthNeutral'] = pickle.load(open("./data/GrowthNeutral.pickle", "rb", -1))
         else:
-            self.growthParams['ξₚ'] = 1 / 0.001
+            self.growthParams['ξp'] = 1 / 0.001
             key = 'GrowthNeutral'
             print('-------' + key + '-------')
             self.growthmodels[key] = growthModel(self.growthParams, self.growthSpecs)
@@ -401,7 +1203,7 @@ class modelSolutions():
                 elif ξ in self.xiModels.keys():
                     pass
                 else:
-                    self.prefParams['ξₚ'] = ξ
+                    self.prefParams['ξp'] = ξ
                     self.xiModels[ξ] = preferenceModel(self.prefParams, self.prefSpecs)
                     self.xiModels[ξ].solveHJB(key)
                     self.xiModels[ξ].Simulate(method = self.method)
@@ -438,7 +1240,7 @@ class modelSolutions():
                         print('Error: no starting models.')
                 else:
 
-                    self.prefParams['ξₚ'] = avs_xi
+                    self.prefParams['ξp'] = avs_xi
                     self.xiModels[avs_xi] = preferenceModel(self.prefParams, self.prefSpecs)
                     self.xiModels[avs_xi].solveHJB(key, initial_guess = 'xi_smartguess')
                     self.xiModels[avs_xi].Simulate(self.method)
@@ -474,7 +1276,7 @@ class modelSolutions():
                         print('Error: no starting models.')
                 else:
 
-                    self.prefParams['ξₚ'] = neu_xi
+                    self.prefParams['ξp'] = neu_xi
                     self.xiModels[neu_xi] = preferenceModel(self.prefParams, self.prefSpecs)
                     self.xiModels[neu_xi].solveHJB(key, initial_guess = 'xi_smartguess')
                     self.xiModels[neu_xi].Simulate(self.method)
@@ -1135,7 +1937,7 @@ class preferenceModel():
         self.modelParams['α'] = params['α']
         self.modelParams['ϕ0'] = params['ϕ0']
         self.modelParams['ϕ1'] = params['ϕ1']
-        self.modelParams['μ̄ₖ'] = params['μ̄ₖ']
+        self.modelParams['μk'] = params['μk']
         self.modelParams['ψ0'] = params['ψ0']
         self.modelParams['ψ1'] = params['ψ1']
         # parameters for damage function
@@ -1149,7 +1951,7 @@ class preferenceModel():
         self.modelParams['F̄'] = params['F̄']
         self.modelParams['crit'] = params['crit']
         self.modelParams['F0'] = params['F0']
-        self.modelParams['ξₚ'] = params['ξₚ']
+        self.modelParams['ξp'] = params['ξp']
         β𝘧 = np.mean(params['βMcD'])
         self.modelParams['β𝘧'] = β𝘧
         σᵦ = np.var(params['βMcD'], ddof = 1)
@@ -1277,7 +2079,7 @@ class preferenceModel():
         α  = self.modelParams['α']
         ϕ0 = self.modelParams['ϕ0']
         ϕ1 = self.modelParams['ϕ1']
-        μ̄ₖ = self.modelParams['μ̄ₖ'] 
+        μk = self.modelParams['μk'] 
         ψ0 = self.modelParams['ψ0']
         ψ1 = self.modelParams['ψ1']
         power = self.modelParams['power']
@@ -1290,7 +2092,7 @@ class preferenceModel():
         F̄ = self.modelParams['F̄']
         crit = self.modelParams['crit']
         F0 = self.modelParams['F0']
-        ξₚ = self.modelParams['ξₚ']
+        ξp = self.modelParams['ξp']
         β𝘧 = self.modelParams['β𝘧']
         σᵦ = self.modelParams['σᵦ']
         λ = self.modelParams['λ']
@@ -1387,24 +2189,24 @@ class preferenceModel():
             self.a1 = np.zeros(R_mat.shape)
             b1 = xi_d * e_hat * np.exp(R_mat) * γ1
             c1 = 2 * xi_d * e_hat * np.exp(R_mat) * F_mat * γ2 
-            self.λ̃1 = λ + c1 / ξₚ
-            self.β̃1 = β𝘧 - c1 * β𝘧 / (ξₚ * self.λ̃1) -  b1 /  (ξₚ * self.λ̃1)
-            I1 = self.a1 - 0.5 * np.log(λ) * ξₚ + 0.5 * np.log(self.λ̃1) * ξₚ + 0.5 * λ * β𝘧 ** 2 * ξₚ - 0.5 * self.λ̃1 * (self.β̃1) ** 2 * ξₚ
+            self.λ̃1 = λ + c1 / ξp
+            self.β̃1 = β𝘧 - c1 * β𝘧 / (ξp * self.λ̃1) -  b1 /  (ξp * self.λ̃1)
+            I1 = self.a1 - 0.5 * np.log(λ) * ξp + 0.5 * np.log(self.λ̃1) * ξp + 0.5 * λ * β𝘧 ** 2 * ξp - 0.5 * self.λ̃1 * (self.β̃1) ** 2 * ξp
             #     R1 = \xi\_p.*(I1-(a1+b1.*β̃1+c1./2.*(β̃1).^2+c1./2./\lambda\tilde_1));
-            self.R1 = 1 / ξₚ * (I1 - (self.a1 + b1 * self.β̃1 + c1 / 2 * self.β̃1 ** 2 + c1 / 2 / self.λ̃1))
+            self.R1 = 1 / ξp * (I1 - (self.a1 + b1 * self.β̃1 + c1 / 2 * self.β̃1 ** 2 + c1 / 2 / self.λ̃1))
             J1_without_e = xi_d * (γ1 * self.β̃1 + γ2 * F_mat * (self.β̃1 ** 2 + 1 / self.λ̃1)) * np.exp(R_mat)
 
-            self.π̃1 = self.weight * np.exp(-1 / ξₚ * I1)
+            self.π̃1 = self.weight * np.exp(-1 / ξp * I1)
 
             def scale_2_fnc(x):
-                return np.exp(-1 / ξₚ * xi_d * (γ1 * x + γ2 * x ** 2 * F_mat + γ2_plus * x * (x * F_mat - F̄) ** (power - 1) * ((x * F_mat - F̄) >= 0)) * np.exp(R_mat) * e_hat)  * norm.pdf(x,β𝘧,np.sqrt(σᵦ))
+                return np.exp(-1 / ξp * xi_d * (γ1 * x + γ2 * x ** 2 * F_mat + γ2_plus * x * (x * F_mat - F̄) ** (power - 1) * ((x * F_mat - F̄) >= 0)) * np.exp(R_mat) * e_hat)  * norm.pdf(x,β𝘧,np.sqrt(σᵦ))
             
             scale_2 = quad_int(scale_2_fnc, a, b, n, 'legendre')
 
             def q2_tilde_fnc(x):
-                return np.exp(-1 / ξₚ * xi_d * (γ1 * x + γ2 * x ** 2 * F_mat + γ2_plus * x * (x * F_mat - F̄) ** (power - 1) * ((x * F_mat - F̄) >= 0)) * np.exp(R_mat) * e_hat) / scale_2
+                return np.exp(-1 / ξp * xi_d * (γ1 * x + γ2 * x ** 2 * F_mat + γ2_plus * x * (x * F_mat - F̄) ** (power - 1) * ((x * F_mat - F̄) >= 0)) * np.exp(R_mat) * e_hat) / scale_2
             
-            I2 = -1 * ξₚ * np.log(scale_2)
+            I2 = -1 * ξp * np.log(scale_2)
 
             def J2_without_e_fnc(x):
                 return xi_d * np.exp(R_mat) * q2_tilde_fnc(x) * (γ1 * x + γ2 * F_mat * x ** 2 + γ2_plus * x * (x * F_mat - F̄) ** (power - 1) * ((x * F_mat - F̄) >= 0)) * norm.pdf(x,β𝘧,np.sqrt(σᵦ))
@@ -1412,8 +2214,8 @@ class preferenceModel():
             J2_without_e = quad_int(J2_without_e_fnc, a, b, n, 'legendre')
             J2_with_e = J2_without_e * e_hat
 
-            self.R2 = (I2 - J2_with_e) / ξₚ
-            self.π̃2 = (1 - self.weight) * np.exp(-1 / ξₚ * I2)
+            self.R2 = (I2 - J2_with_e) / ξp
+            self.π̃2 = (1 - self.weight) * np.exp(-1 / ξp * I2)
             π̃1_norm = self.π̃1 / (self.π̃1 + self.π̃2)
             π̃2_norm = 1 - π̃1_norm
 
@@ -1427,10 +2229,10 @@ class preferenceModel():
             J1 = J1_without_e * e_star
             J2 = J2_without_e * e_star
 
-            I_term = -1 * ξₚ * np.log(self.π̃1 + self.π̃2)
+            I_term = -1 * ξp * np.log(self.π̃1 + self.π̃2)
 
-            self.R1 = (I1 - J1) / ξₚ
-            self.R2 = (I2 - J2) / ξₚ
+            self.R1 = (I1 - J1) / ξp
+            self.R2 = (I2 - J2) / ξp
             drift_distort = (π̃1_norm * J1 + π̃2_norm * J2)
 
             if self.weight == 0 or self.weight == 1:
@@ -1439,13 +2241,13 @@ class preferenceModel():
                 self.RE = π̃1_norm * self.R1 + π̃2_norm * self.R2 + π̃1_norm * np.log(
                     π̃1_norm / self.weight) + π̃2_norm * np.log(π̃2_norm / (1 - self.weight))
 
-            RE_total = ξₚ * self.RE
+            RE_total = ξp * self.RE
 
             A = -δ * np.ones(R_mat.shape)
             # B_r = -e_star + ψ0 * (self.j ** ψ1) - 0.5 * (σ𝘳 ** 2)
             B_r = -e_star + ψ0 * (self.j ** ψ1) * np.exp(ψ1 * (K_mat - R_mat)) - 0.5 * (σ𝘳 ** 2)
             B_f = e_star * np.exp(R_mat)
-            B_k = μ̄ₖ + ϕ0 * np.log(1 + self.i * ϕ1) - 0.5 * (σ𝘬 ** 2)
+            B_k = μk + ϕ0 * np.log(1 + self.i * ϕ1) - 0.5 * (σ𝘬 ** 2)
             C_rr = 0.5 * σ𝘳 ** 2 * np.ones(R_mat.shape)
             C_ff = np.zeros(R_mat.shape)
             C_kk = 0.5 * σ𝘬 ** 2 * np.ones(R_mat.shape)
@@ -1481,12 +2283,12 @@ class preferenceModel():
 
         # Unpacking necesssary variables
         α = self.modelParams['α']
-        ξₚ = self.modelParams['ξₚ']
+        ξp = self.modelParams['ξp']
         ψ0 = self.modelParams['ψ0']
         ψ1 = self.modelParams['ψ1']
         ϕ0 = self.modelParams['ϕ0']
         ϕ1 = self.modelParams['ϕ1']
-        μ̄ₖ = self.modelParams['μ̄ₖ'] 
+        μk = self.modelParams['μk'] 
 
         power = self.modelParams['power']
         γ1 = self.modelParams['γ1']
@@ -1559,12 +2361,12 @@ class preferenceModel():
             return pi_tilde_2_func_r.get_value(np.log(x[0]), x[2], np.log(x[1]))
 
         def scale_2_fnc(x):
-            return np.exp(-1 / ξₚ * xi_d * (γ1 * x + γ2 * x ** 2 * F_mat + γ2_plus * x * (x * F_mat - F̄) ** (power - 1) * ((x * F_mat - F̄) >= 0)) * np.exp(R_mat) * self.e)  * norm.pdf(x,β𝘧,np.sqrt(σᵦ))
+            return np.exp(-1 / ξp * xi_d * (γ1 * x + γ2 * x ** 2 * F_mat + γ2_plus * x * (x * F_mat - F̄) ** (power - 1) * ((x * F_mat - F̄) >= 0)) * np.exp(R_mat) * self.e)  * norm.pdf(x,β𝘧,np.sqrt(σᵦ))
         
         scale_2 = quad_int(scale_2_fnc, a, b, n, 'legendre')
 
         def q2_tilde_fnc(x):
-            return np.exp(-1 / ξₚ * xi_d * (γ1 * x + γ2 * x ** 2 * F_mat + γ2_plus * x * (x * F_mat - F̄) ** (power - 1) * ((x * F_mat - F̄) >= 0)) * np.exp(R_mat) * self.e) / scale_2
+            return np.exp(-1 / ξp * xi_d * (γ1 * x + γ2 * x ** 2 * F_mat + γ2_plus * x * (x * F_mat - F̄) ** (power - 1) * ((x * F_mat - F̄) >= 0)) * np.exp(R_mat) * self.e) / scale_2
             
         def base_model_drift_func(x):
             return np.exp(R_mat) * self.e * (γ1 * x + γ2 * x ** 2 * F_mat + self.γ2bar_plus * x * (x * F_mat - F̄) ** (power - 1) * ((x * F_mat - F̄) >= 0)) * norm.pdf(x,β𝘧,np.sqrt(σᵦ))
@@ -1594,7 +2396,7 @@ class preferenceModel():
         def muR(x):
             return -e_func(x) + ψ0 * (j_func(x) * x[1] / x[0]) ** ψ1
         def muK(x): 
-            return (μ̄k + ϕ0 * np.log(1 + i_func(x) * ϕ1))
+            return (μk + ϕ0 * np.log(1 + i_func(x) * ϕ1))
         def muF(x):
             return e_func(x) * x[0]
         def muD_base(x):
@@ -1706,7 +2508,7 @@ class preferenceModel():
         if AmbiguityNeutral:
             α  = self.modelParams['α']
             κ  = self.modelParams['κ']
-            ξₚ = self.modelParams['ξₚ']
+            ξp = self.modelParams['ξp']
             δ = self.modelParams['δ']
             
             MC = δ * (1-κ) / (α * np.exp(K_mat) - self.i * np.exp(K_mat) - self.j * np.exp(R_mat))
@@ -1741,7 +2543,7 @@ class preferenceModel():
             α  = self.modelParams['α']
             ϕ0 = self.modelParams['ϕ0']
             ϕ1 = self.modelParams['ϕ1']
-            μ̄ₖ = self.modelParams['μ̄ₖ'] 
+            μk = self.modelParams['μk'] 
             ψ0 = self.modelParams['ψ0']
             ψ1 = self.modelParams['ψ1']
             power = self.modelParams['power']
@@ -1754,7 +2556,7 @@ class preferenceModel():
             F̄ = self.modelParams['F̄']
             crit = self.modelParams['crit']
             F0 = self.modelParams['F0']
-            ξₚ = self.modelParams['ξₚ']
+            ξp = self.modelParams['ξp']
             β𝘧 = self.modelParams['β𝘧']
             σᵦ = self.modelParams['σᵦ']
             λ = self.modelParams['λ']
@@ -1778,7 +2580,7 @@ class preferenceModel():
 
             A = -δ * np.ones(R_mat.shape)
             B_r = -self.e + ψ0 * (self.j ** ψ1) * np.exp(ψ1 * (K_mat - R_mat)) - 0.5 * (σ𝘳 ** 2)
-            B_k = μ̄ₖ + ϕ0 * np.log(1 + self.i * ϕ1) - 0.5 * (σ𝘬 ** 2)
+            B_k = μk + ϕ0 * np.log(1 + self.i * ϕ1) - 0.5 * (σ𝘬 ** 2)
             B_f = self.e * np.exp(R_mat)
             C_rr = 0.5 * σ𝘳 ** 2 * np.ones(R_mat.shape)
             C_kk = 0.5 * σ𝘬 ** 2 * np.ones(R_mat.shape)
@@ -1810,12 +2612,12 @@ class preferenceModel():
             lambda_tilde_nordhaus = self.λ̃1
 
             def scale_2_fnc(x):
-                return np.exp(-1 / ξₚ * xi_d * (γ1 * x + γ2 * x ** 2 * F_mat + γ2_plus * x * (x * F_mat - F̄) ** (power - 1) * ((x * F_mat - F̄) >= 0)) * np.exp(R_mat) * self.e)  * norm.pdf(x,β𝘧,np.sqrt(σᵦ))
+                return np.exp(-1 / ξp * xi_d * (γ1 * x + γ2 * x ** 2 * F_mat + γ2_plus * x * (x * F_mat - F̄) ** (power - 1) * ((x * F_mat - F̄) >= 0)) * np.exp(R_mat) * self.e)  * norm.pdf(x,β𝘧,np.sqrt(σᵦ))
             
             scale_2 = quad_int(scale_2_fnc, a, b, n, 'legendre')
 
             def q2_tilde_fnc(x):
-                return np.exp(-1 / ξₚ * xi_d * (γ1 * x + γ2 * x ** 2 * F_mat + γ2_plus * x * (x * F_mat - F̄) ** (power - 1) * ((x * F_mat - F̄) >= 0)) * np.exp(R_mat) * self.e) / scale_2
+                return np.exp(-1 / ξp * xi_d * (γ1 * x + γ2 * x ** 2 * F_mat + γ2_plus * x * (x * F_mat - F̄) ** (power - 1) * ((x * F_mat - F̄) >= 0)) * np.exp(R_mat) * self.e) / scale_2
 
             nordhaus_model_flow = (γ2 * (1 / lambda_tilde_nordhaus + mean_nordhaus ** 2)) * np.exp(R_mat) * self.e 
             # weitzman_model_flow_func = @(x) q2_tilde_1_fnc(x) .*(gamma_2.*x.^2 +gamma_2_plus.*x.^2.*((x.*t_mat-f_bar)>=0)).*exp(r_mat).*e .*normpdf(x,beta_f,sqrt(var_beta_f));
@@ -1823,10 +2625,10 @@ class preferenceModel():
                 return q2_tilde_fnc(x) * (γ2 * x ** 2 + γ2_plus * x ** 2 * ((x * F_mat - F̄) >= 0 )) * np.exp(R_mat) * self.e * norm.pdf(x,β𝘧,np.sqrt(σᵦ))
             weitzman_model_flow = quad_int(weitzman_model_flow_func, a, b, n, 'legendre')
 
-            I1 = self.a1 - 0.5 * np.log(λ) * ξₚ + 0.5 * np.log(self.λ̃1) * ξₚ + 0.5 * λ * β𝘧 ** 2 * ξₚ - 0.5 * self.λ̃1 * (self.β̃1) ** 2 * ξₚ
-            I2 = -1 * ξₚ * np.log(scale_2)
-            π̃1 = (self.weight) * np.exp(-1 / ξₚ * I1)
-            π̃2 = (1 - self.weight) * np.exp(-1 / ξₚ * I2)
+            I1 = self.a1 - 0.5 * np.log(λ) * ξp + 0.5 * np.log(self.λ̃1) * ξp + 0.5 * λ * β𝘧 ** 2 * ξp - 0.5 * self.λ̃1 * (self.β̃1) ** 2 * ξp
+            I2 = -1 * ξp * np.log(scale_2)
+            π̃1 = (self.weight) * np.exp(-1 / ξp * I1)
+            π̃2 = (1 - self.weight) * np.exp(-1 / ξp * I2)
             π̃1_norm = π̃1 / (π̃1 + π̃2)
             π̃2_norm = 1 - π̃1_norm
 
@@ -1834,7 +2636,7 @@ class preferenceModel():
 
             A = -δ * np.ones(R_mat.shape)
             B_r = -self.e + ψ0 * (self.j ** ψ1) * np.exp(ψ1 * (K_mat - R_mat)) - 0.5 * (σ𝘳 ** 2)
-            B_k = μ̄ₖ + ϕ0 * np.log(1 + self.i * ϕ1) - 0.5 * (σ𝘬 ** 2)
+            B_k = μk + ϕ0 * np.log(1 + self.i * ϕ1) - 0.5 * (σ𝘬 ** 2)
             B_f = self.e * np.exp(R_mat)
             C_rr = 0.5 * σ𝘳 ** 2 * np.ones(R_mat.shape)
             C_kk = 0.5 * σ𝘬 ** 2 * np.ones(R_mat.shape)
@@ -1957,7 +2759,7 @@ class preferenceModel():
         gridpoints = (self.R, self.F, self.K)
         pers = 400
         n = self.n
-        ξₚ = self.modelParams['ξₚ']
+        ξp = self.modelParams['ξp']
         power = self.modelParams['power']
         γ1 = self.modelParams['γ1']
         γ2 = self.modelParams['γ2']
@@ -2073,7 +2875,7 @@ class growthModel():
         self.modelParams['α'] = params['α']
         self.modelParams['ϕ0'] = params['ϕ0']
         self.modelParams['ϕ1'] = params['ϕ1']
-        self.modelParams['μ̄ₖ'] = params['μ̄ₖ']
+        self.modelParams['μk'] = params['μk']
         self.modelParams['ψ0'] = params['ψ0']
         self.modelParams['ψ1'] = params['ψ1']
 
@@ -2082,7 +2884,7 @@ class growthModel():
         self.modelParams['σ2'] = params['σ2']
         self.modelParams['ρ12'] = params['ρ12']
         self.modelParams['F̄'] = params['F̄']
-        self.modelParams['ξₚ'] = params['ξₚ']
+        self.modelParams['ξp'] = params['ξp']
 
         β𝘧 = np.mean(params['βMcD'])
         self.modelParams['β𝘧'] = β𝘧
@@ -2237,12 +3039,12 @@ class growthModel():
         α  = self.modelParams['α']
         ϕ0 = self.modelParams['ϕ0']
         ϕ1 = self.modelParams['ϕ1']
-        μ̄ₖ = self.modelParams['μ̄ₖ'] 
+        μk = self.modelParams['μk'] 
         ψ0 = self.modelParams['ψ0']
         ψ1 = self.modelParams['ψ1']
          
         F̄ = self.modelParams['F̄']
-        ξₚ = self.modelParams['ξₚ']
+        ξp = self.modelParams['ξp']
         β𝘧 = self.modelParams['β𝘧']
         # σᵦ = self.modelParams['σᵦ']
         λ = self.modelParams['λ']
@@ -2338,12 +3140,12 @@ class growthModel():
                 self.a_.append( -v0_dk * (gamma0[ite] + gamma1[ite] * F̄ + 0.5 * gamma2[ite] * F̄ ** 2) )
                 self.b_.append( -v0_dk * F_mat * (gamma1[ite] + gamma2[ite] * F̄) )
                 self.c_.append( -v0_dk * gamma2[ite] * F_mat ** 2 )
-                self.λ̃_.append( λ + self.c_[ite] / ξₚ )
-                self.β̃_.append( β𝘧 - self.c_[ite] / ξₚ / self.λ̃_[ite] * β𝘧 - self.b_[ite] / (ξₚ * self.λ̃_[ite]))
-                self.I_.append( self.a_[ite] - 0.5 * np.log(λ) * ξₚ + 0.5 * np.log(self.λ̃_[ite]) * ξₚ + 0.5 * λ * β𝘧 ** 2 * ξₚ - 0.5 * self.λ̃_[ite] * (self.β̃_[ite]) ** 2 * ξₚ )
-                self.π̃_.append( self.weight[ite] * np.exp(-1 / ξₚ * self.I_[ite]) )
+                self.λ̃_.append( λ + self.c_[ite] / ξp )
+                self.β̃_.append( β𝘧 - self.c_[ite] / ξp / self.λ̃_[ite] * β𝘧 - self.b_[ite] / (ξp * self.λ̃_[ite]))
+                self.I_.append( self.a_[ite] - 0.5 * np.log(λ) * ξp + 0.5 * np.log(self.λ̃_[ite]) * ξp + 0.5 * λ * β𝘧 ** 2 * ξp - 0.5 * self.λ̃_[ite] * (self.β̃_[ite]) ** 2 * ξp )
+                self.π̃_.append( self.weight[ite] * np.exp(-1 / ξp * self.I_[ite]) )
                 self.J_.append( self.a_[ite] + self.b_[ite] * self.β̃_[ite] + 0.5 * self.c_[ite] * self.β̃_[ite] ** 2 + 0.5 * self.c_[ite] / self.λ̃_[ite] )
-                self.R_.append((self.I_[ite] - self.J_[ite]) / ξₚ)
+                self.R_.append((self.I_[ite] - self.J_[ite]) / ξp)
 
 
             π̃_total = sum(self.π̃_)
@@ -2354,15 +3156,15 @@ class growthModel():
             self.e = C1 / B1
             e_star = self.e
 
-            I_term = -1 * ξₚ * np.log(sum(self.π̃_))
+            I_term = -1 * ξp * np.log(sum(self.π̃_))
             drift_distort = sum([x*y for (x,y) in zip(self.π̃_norm_, self.J_)])
             self.RE = sum(x * y + x * np.log(x / z) for (x,y,z) in zip(self.π̃_norm_, self.R_, self.weight))
-            RE_total = ξₚ * self.RE
+            RE_total = ξp * self.RE
 
             A = -δ * np.ones(R_mat.shape)
             # B_r = -e_star + ψ0 * (self.j ** ψ1) - 0.5 * (σ𝘳 ** 2)
             B_r = -e_star + ψ0 * (self.j ** ψ1) * np.exp(ψ1 * (K_mat - R_mat)) - 0.5 * (σ𝘳 ** 2)
-            B_k = μ̄ₖ + ϕ0 * np.log(1 + self.i * ϕ1) - 0.5 * (σ𝘬 ** 2)
+            B_k = μk + ϕ0 * np.log(1 + self.i * ϕ1) - 0.5 * (σ𝘬 ** 2)
             B_f = e_star * np.exp(R_mat)
             C_rr = 0.5 * σ𝘳 ** 2 * np.ones(R_mat.shape)
             C_kk = 0.5 * σ𝘬 ** 2 * np.ones(R_mat.shape)
@@ -2405,7 +3207,7 @@ class growthModel():
         ψ1 = self.modelParams['ψ1']
         ϕ0 = self.modelParams['ϕ0']
         ϕ1 = self.modelParams['ϕ1']
-        μ̄ₖ = self.modelParams['μ̄ₖ'] 
+        μk = self.modelParams['μk'] 
         F̄ = self.modelParams['F̄']
 
         R_mat = self.R_mat
@@ -2501,9 +3303,9 @@ class growthModel():
         def muR(x):
             return -e_func(x) + ψ0 * (j_func(x) * x[1] / x[0])** ψ1
         def muK_tilted(x): 
-            return (μ̄k + ϕ0 * np.log(1 + i_func(x) * ϕ1)- Gamma_tilted(x))
+            return (μk + ϕ0 * np.log(1 + i_func(x) * ϕ1)- Gamma_tilted(x))
         def muK_base(x): 
-            return (μ̄k + ϕ0 * np.log(1 + i_func(x) * ϕ1)- Gamma_base(x))
+            return (μk + ϕ0 * np.log(1 + i_func(x) * ϕ1)- Gamma_base(x))
         def muF(x):
             return e_func(x) * x[0]
 
@@ -2600,7 +3402,7 @@ class growthModel():
         σ𝘳 = self.modelParams['σ𝘳']
         ϕ0 = self.modelParams['ϕ0']
         ϕ1 = self.modelParams['ϕ1']
-        μ̄ₖ = self.modelParams['μ̄ₖ'] 
+        μk = self.modelParams['μk'] 
         ψ0 = self.modelParams['ψ0']
         ψ1 = self.modelParams['ψ1']
 
@@ -2648,7 +3450,7 @@ class growthModel():
 
         A = -δ * np.ones(R_mat.shape)
         B_r = -self.e + ψ0 * (self.j ** ψ1) * np.exp(ψ1 * (K_mat - R_mat)) - 0.5 * (σ𝘳 ** 2)
-        B_k = μ̄ₖ + ϕ0 * np.log(1 + self.i * ϕ1) - 0.5 * (σ𝘬 ** 2) - Gamma_base
+        B_k = μk + ϕ0 * np.log(1 + self.i * ϕ1) - 0.5 * (σ𝘬 ** 2) - Gamma_base
         B_f = self.e * np.exp(R_mat)
         C_rr = 0.5 * σ𝘳 ** 2 * np.ones(R_mat.shape)
         C_kk = 0.5 * σ𝘬 ** 2 * np.ones(R_mat.shape)
@@ -2694,7 +3496,7 @@ class growthModel():
 
         A = -δ * np.ones(R_mat.shape)
         B_r = -self.e + ψ0 * (self.j ** ψ1) * np.exp(ψ1 * (K_mat - R_mat)) - 0.5 * (σ𝘳 ** 2)
-        B_k = μ̄ₖ + ϕ0 * np.log(1 + self.i * ϕ1) - 0.5 * (σ𝘬 ** 2) - Gamma_tilted
+        B_k = μk + ϕ0 * np.log(1 + self.i * ϕ1) - 0.5 * (σ𝘬 ** 2) - Gamma_tilted
         B_f = self.e * np.exp(R_mat)
         C_rr = 0.5 * σ𝘳 ** 2 * np.ones(R_mat.shape)
         C_kk = 0.5 * σ𝘬 ** 2 * np.ones(R_mat.shape)
@@ -2863,7 +3665,7 @@ class competitiveModel():
         self.modelParams['α'] = params['α']
         self.modelParams['ϕ0'] = params['ϕ0']
         self.modelParams['ϕ1'] = params['ϕ1']
-        self.modelParams['μ̄ₖ'] = params['μ̄ₖ']
+        self.modelParams['μk'] = params['μk']
         self.modelParams['ψ0'] = params['ψ0']
         self.modelParams['ψ1'] = params['ψ1']
         # parameters for damage function
@@ -2877,7 +3679,7 @@ class competitiveModel():
         self.modelParams['F̄'] = params['F̄']
         self.modelParams['crit'] = params['crit']
         self.modelParams['F0'] = params['F0']
-        self.modelParams['ξₚ'] = params['ξₚ']
+        self.modelParams['ξp'] = params['ξp']
         β𝘧 = np.mean(params['βMcD'])
         self.modelParams['β𝘧'] = β𝘧
         σᵦ = np.var(params['βMcD'], ddof = 1)
@@ -3031,7 +3833,7 @@ class competitiveModel():
         α  = self.modelParams['α']
         ϕ0 = self.modelParams['ϕ0']
         ϕ1 = self.modelParams['ϕ1']
-        μ̄ₖ = self.modelParams['μ̄ₖ'] 
+        μk = self.modelParams['μk'] 
         ψ0 = self.modelParams['ψ0']
         ψ1 = self.modelParams['ψ1']
         power = self.modelParams['power']
@@ -3044,7 +3846,7 @@ class competitiveModel():
         F̄ = self.modelParams['F̄']
         crit = self.modelParams['crit']
         F0 = self.modelParams['F0']
-        ξₚ = self.modelParams['ξₚ']
+        ξp = self.modelParams['ξp']
         β𝘧 = self.modelParams['β𝘧']
         σᵦ = self.modelParams['σᵦ']
         λ = self.modelParams['λ']
@@ -3093,7 +3895,7 @@ class competitiveModel():
 
             A = -δ * np.ones(R_mat.shape)
             B_r = -self.e + ψ0 * (self.j ** ψ1) - 0.5 * (σ𝘳 ** 2)
-            B_k = μ̄ₖ + ϕ0 * np.log(1 + self.i * ϕ1) - 0.5 * (σ𝘬 ** 2)
+            B_k = μk + ϕ0 * np.log(1 + self.i * ϕ1) - 0.5 * (σ𝘬 ** 2)
             C_rr = 0.5 * σ𝘳 ** 2 * np.ones(R_mat.shape)
             C_kk = 0.5 * σ𝘬 ** 2 * np.ones(R_mat.shape)
             D = δ * κ * np.log(self.e) + δ * κ * R_mat + δ * (1 - κ) * (np.log(α - self.i - self.j * np.exp(R_mat - K_mat)) + K_mat)
@@ -3129,7 +3931,7 @@ class competitiveModel():
         ψ1 = self.modelParams['ψ1']
         ϕ0 = self.modelParams['ϕ0']
         ϕ1 = self.modelParams['ϕ1']
-        μ̄ₖ = self.modelParams['μ̄ₖ'] 
+        μk = self.modelParams['μk'] 
 
         gridpoints = (self.R, self.K)
 
@@ -3163,7 +3965,7 @@ class competitiveModel():
         def muR(x):
             return -e_func(x) + ψ0 * j_func(x) ** ψ1
         def muK(x): 
-            return (μ̄k + ϕ0 * np.log(1 + i_func(x) * ϕ1))
+            return (μk + ϕ0 * np.log(1 + i_func(x) * ϕ1))
         def muF(x):
             return e_func(x) * x[0]
         def sigmaR(x):
@@ -3223,7 +4025,7 @@ class competitiveModel():
         α  = self.modelParams['α']
         ϕ0 = self.modelParams['ϕ0']
         ϕ1 = self.modelParams['ϕ1']
-        μ̄ₖ = self.modelParams['μ̄ₖ'] 
+        μk = self.modelParams['μk'] 
         ψ0 = self.modelParams['ψ0']
         ψ1 = self.modelParams['ψ1']
         power = self.modelParams['power']
@@ -3236,7 +4038,7 @@ class competitiveModel():
         F̄ = self.modelParams['F̄']
         crit = self.modelParams['crit']
         F0 = self.modelParams['F0']
-        ξₚ = self.modelParams['ξₚ']
+        ξp = self.modelParams['ξp']
         β𝘧 = self.modelParams['β𝘧']
         σᵦ = self.modelParams['σᵦ']
         λ = self.modelParams['λ']
@@ -3262,7 +4064,7 @@ class competitiveModel():
 
         A = -δ * np.ones(R_mat.shape)
         B_r = -self.basemodel.e + ψ0 * (self.basemodel.j ** ψ1) - 0.5 * (σ𝘳 ** 2)
-        B_k = μ̄ₖ + ϕ0 * np.log(1 + self.basemodel.i * ϕ1) - 0.5 * (σ𝘬 ** 2)
+        B_k = μk + ϕ0 * np.log(1 + self.basemodel.i * ϕ1) - 0.5 * (σ𝘬 ** 2)
         B_f = self.basemodel.e * np.exp(R_mat)
         C_rr = 0.5 * σ𝘳 ** 2 * np.ones(R_mat.shape)
         C_kk = 0.5 * σ𝘬 ** 2 * np.ones(R_mat.shape)
@@ -3290,12 +4092,12 @@ class competitiveModel():
         lambda_tilde_nordhaus = self.basemodel.λ̃1
 
         def scale_2_fnc(x):
-            return np.exp(-1 / ξₚ * xi_d * (γ1 * x + γ2 * x ** 2 * F_mat + γ2_plus * x * (x * F_mat - F̄) ** (power - 1) * ((x * F_mat - F̄) >= 0)) * np.exp(R_mat) * self.basemodel.e)  * norm.pdf(x,β𝘧,np.sqrt(σᵦ))
+            return np.exp(-1 / ξp * xi_d * (γ1 * x + γ2 * x ** 2 * F_mat + γ2_plus * x * (x * F_mat - F̄) ** (power - 1) * ((x * F_mat - F̄) >= 0)) * np.exp(R_mat) * self.basemodel.e)  * norm.pdf(x,β𝘧,np.sqrt(σᵦ))
         
         scale_2 = quad_int(scale_2_fnc, a, b, n, 'legendre')
 
         def q2_tilde_fnc(x):
-            return np.exp(-1 / ξₚ * xi_d * (γ1 * x + γ2 * x ** 2 * F_mat + γ2_plus * x * (x * F_mat - F̄) ** (power - 1) * ((x * F_mat - F̄) >= 0)) * np.exp(R_mat) * self.basemodel.e) / scale_2
+            return np.exp(-1 / ξp * xi_d * (γ1 * x + γ2 * x ** 2 * F_mat + γ2_plus * x * (x * F_mat - F̄) ** (power - 1) * ((x * F_mat - F̄) >= 0)) * np.exp(R_mat) * self.basemodel.e) / scale_2
 
         nordhaus_model_flow = (γ2 * (1 / lambda_tilde_nordhaus + mean_nordhaus ** 2)) * np.exp(R_mat) * self.basemodel.e 
         # weitzman_model_flow_func = @(x) q2_tilde_1_fnc(x) .*(gamma_2.*x.^2 +gamma_2_plus.*x.^2.*((x.*t_mat-f_bar)>=0)).*exp(r_mat).*e .*normpdf(x,beta_f,sqrt(var_beta_f));
@@ -3303,10 +4105,10 @@ class competitiveModel():
             return q2_tilde_fnc(x) * (γ2 * x ** 2 + γ2_plus * x ** 2 * ((x * F_mat - F̄) >= 0 )) * np.exp(R_mat) * self.basemodel.e * norm.pdf(x,β𝘧,np.sqrt(σᵦ))
         weitzman_model_flow = quad_int(weitzman_model_flow_func, a, b, n, 'legendre')
 
-        I1 = self.basemodel.a1 - 0.5 * np.log(λ) * ξₚ + 0.5 * np.log(self.basemodel.λ̃1) * ξₚ + 0.5 * λ * β𝘧 ** 2 * ξₚ - 0.5 * self.basemodel.λ̃1 * (self.basemodel.β̃1) ** 2 * ξₚ
-        I2 = -1 * ξₚ * np.log(scale_2)
-        π̃1 = (self.basemodel.weight) * np.exp(-1 / ξₚ * I1)
-        π̃2 = (1 - self.basemodel.weight) * np.exp(-1 / ξₚ * I2)
+        I1 = self.basemodel.a1 - 0.5 * np.log(λ) * ξp + 0.5 * np.log(self.basemodel.λ̃1) * ξp + 0.5 * λ * β𝘧 ** 2 * ξp - 0.5 * self.basemodel.λ̃1 * (self.basemodel.β̃1) ** 2 * ξp
+        I2 = -1 * ξp * np.log(scale_2)
+        π̃1 = (self.basemodel.weight) * np.exp(-1 / ξp * I1)
+        π̃2 = (1 - self.basemodel.weight) * np.exp(-1 / ξp * I2)
         π̃1_norm = π̃1 / (π̃1 + π̃2)
         π̃2_norm = 1 - π̃1_norm
 
@@ -3314,7 +4116,7 @@ class competitiveModel():
 
         A = -δ * np.ones(R_mat.shape)
         B_r = -self.basemodel.e + ψ0 * (self.basemodel.j ** ψ1) - 0.5 * (σ𝘳 ** 2)
-        B_k = μ̄ₖ + ϕ0 * np.log(1 + self.basemodel.i * ϕ1) - 0.5 * (σ𝘬 ** 2)
+        B_k = μk + ϕ0 * np.log(1 + self.basemodel.i * ϕ1) - 0.5 * (σ𝘬 ** 2)
         B_f = self.basemodel.e * np.exp(R_mat)
         C_rr = 0.5 * σ𝘳 ** 2 * np.ones(R_mat.shape)
         C_kk = 0.5 * σ𝘬 ** 2 * np.ones(R_mat.shape)
@@ -3428,90 +4230,17 @@ if __name__ == "__main__":
     #   print(key,val)
     print(os.getcwd())
 
-    print('------Model Solutions------')
-    m = modelSolutions()
-    m.solveProblem()
-    # # m.solvexiModels()
-    # m.densityIntPlot()
-    print('------Growth------')
-    m.solveGrowth()
-    # print("-----------Preference-------------------")
-    # m = preferenceModel()
-    # m.solveHJB('Weighted', 'WeightedAverse')
-    # m.Simulate()
-    # # print(m.hists[:,-1]) 
-    # m.SCCDecompose(initial_guess = 'WeightedAverse')
-    # m.computeProbs('Weighted')
-
-
-    # m = modelSolutions(method = 'Spline')
+    # print('------Model Solutions------')
+    # m = modelSolutions()
     # m.solveProblem()
-    # print("-----------Competitive-------------------")
-
-    # m.solveComps()
-
-    # print("-----------Growth-------------------")
-
+    # # # m.solvexiModels()
+    # # m.densityIntPlot()
+    # print('------Growth------')
     # m.solveGrowth()
-    # m.SCCPlot(spec = 'Growth')
-    # print("-----------Checking-------------------")
-    # if not os.path.isfile('./data/comppref.pickle'):
-    #     preferenceParams['ξₚ'] = 1 / 4500
-    #     m1 = preferenceModel(preferenceParams, compSpecs)
-    #     m1.solveHJB('High') 
-    #     m1.Simulate('Spline') 
-    #     m1.SCCDecompose('Spline')
-    #     with open('./data/comppref.pickle', "wb") as file_:
-    #         pickle.dump(m1, file_, -1)
-    # else:
-    #     m1 = pickle.load(open('./data/comppref.pickle', "rb", -1))
+    # m.solvexiModels()
 
-    # m2 = competitiveModel(preferenceParams, compSpecs, m1)
-    # m2.solveHJB('High')
-    # for_check = loadmat('./data/MATLAB_Data/HJB_Comp.mat')
-    # print("HJB Error: {}".format(np.max(abs(m2.v0 - for_check['v0']))))
-
-    # m2.Simulate('Spline')
-    # for_check = loadmat('./data/MATLAB_Data/compsims.mat')
-    # print("Simulation Error: {}".format(np.max(abs(m2.hists[-1,:,0] - for_check['hists2'][-1,:3]))))
-    # print("Simulation e Error: {}".format(np.max(abs(m2.e_hists[-1,0] - for_check['e_hists2'][-1,0]))))
-
-    # m2.SCCDecompose('Spline')
-    # for_check = loadmat('./data/MATLAB_Data/SCC_comp.mat')
-    # print("SCC Error: {}".format(np.max(abs(m2.SCCs['SCC'] - for_check['SCC'].reshape(m2.SCCs['SCC'].shape)))))
-    # print("----------------HJB-------------------")
-
-    # if not os.path.isfile('./growth.pickle'):
-    #     m = growthModel(growthParams, growthSpecs)
-    #     m.solveHJB()
-    #     for_check = loadmat('../data/MATLAB_Data/HJB_NonLinGrowth.mat')
-    #     print(np.max(abs(for_check['out_comp'] -  m.v0)))
-    #     with open("growth.pickle", "wb") as file_:
-    #         pickle.dump(m, file_, -1)
-    # else:
-    #     m = pickle.load(open("growth.pickle", "rb", -1))
-    # for_check = loadmat('../data/MATLAB_Data/HJB_NonLinGrowth.mat')
-    # print(np.max(abs(for_check['out_comp'] -  m.v0)))
-
-    # print("-------------Simulation---------------")
-    # m.Simulate()
-    # for_check = loadmat('../data/MATLAB_Data/GrowthSims.mat')
-    # print(m.hists[-1,:,0] - for_check['hists2'][-1,:])
-    
-
-    # print("------------SCCDecompose--------------")
-    # m.SCCDecompose()
-    # for_check = loadmat('../data/MATLAB_Data/SCCgrowthfinal.mat')
-    # print(np.max(abs(np.squeeze(for_check['SCC_private']) - m.SCCs['SCC1'])))
-    # for_check = loadmat('../data/MATLAB_Data/SCC_mat_Cumu_worst_Growth.mat')
-    # print(np.max(abs(for_check['v0'] - m.v0_worst)))
-
-    # # print(m.SCCs['SCC'])
-
-    # print("------------ComputeProbs--------------")
-
-    # m.computeProbs()
-    # for_check = loadmat('../data/MATLAB_Data/Dist_50yr.mat')
-    # print(np.max(abs(for_check['weighted'] - m.Dists['Year50']['weighted'])))
-    # # print(m.Dists['Nordhaus_year100'])
-
+    p = PlottingModule()
+    p.densityIntPlot()
+    # p.densityPlot()
+    # p.emissionPlot()
+    # p.SCCDecomposePlot()
