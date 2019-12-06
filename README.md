@@ -4,9 +4,8 @@ Python code to accompany the paper "Pricing Uncertainty Induced by Climate Chang
 Link for the data file: https://drive.google.com/drive/folders/1TVVqditjA489NNSD8H32u0e4eIJkoj0r?usp=sharing
 
 To-dos:
-1. Incorporate sliders
-2. growth model numerical issues
-3. competitive model
+1. Clean up codes
+2. growth model numerical issues (wait for results)
 
 To access our notebook, please follow steps below:
 1.	Open a Windows command prompt and change into the folder you would like to store the files. 
