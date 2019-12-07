@@ -255,7 +255,7 @@ def densityPlot(beta_f_space, Dists, key = 'Weighted'):
                 fig.add_scatter(x = dom[inds] * 1000, y = data['Nordhaus_year' + str(year)][inds], row = 1, col = i + 1,
                     name = 'Low Damage Function', line = dict(color = 'red', dash='dashdot', width = 3), showlegend = False, legendgroup = 'Low Damage Function')
 
-    fig['layout'].update(title = key + " Damage Specification", showlegend = True, titlefont = dict(size = 20))
+    fig['layout'].update(title = key + " Damage Specification", showlegend = True, titlefont = dict(size = 20), height = 450)
 
     for i in range(len(years)):
 
@@ -313,11 +313,11 @@ def SCCDecomposePlot(SCCs, key = 'Weighted'):
 
                 dict(x=x2, y=y2, text="Uncertainty", textangle=0, ax=-100,
                 ay=0, font=dict(color="black", size=12), arrowcolor="black",
-                arrowsize=3, arrowwidth=1, arrowhead=1),
-
-                dict(x=x3, y=y3, text="External", textangle=0, ax=-80,
-                ay=80, font=dict(color="black", size=12), arrowcolor="black",
                 arrowsize=3, arrowwidth=1, arrowhead=1)]
+
+                # dict(x=x3, y=y3, text="External", textangle=0, ax=-80,
+                # ay=80, font=dict(color="black", size=12), arrowcolor="black",
+                # arrowsize=3, arrowwidth=1, arrowhead=1)]
 
     layout = dict(title = 'Social Cost of Carbon, {} Damage Specification'.format(key),
                   titlefont = dict(size = 20),
@@ -330,7 +330,7 @@ def SCCDecomposePlot(SCCs, key = 'Weighted'):
                   annotations=annotations
                   )
 
-    fig = dict(data = [total, external, uncertainty], layout = layout)
+    fig = dict(data = [total,  uncertainty], layout = layout)
     iplot(fig)
     
 def emissionPlot(damageSpec, ξ, e_hists):
@@ -390,7 +390,7 @@ def growthdensityPlot(beta_f_space, Dists):
                     name = 'Tilted {}'.format(j+1), line = dict(color = tilt_colors[j], dash='dash', width = 2), showlegend = False, legendgroup = 'Tilted Densities {}'.format(j))
 
 
-    fig['layout'].update(title = "Worst Case Probabilities, Growth Damage Specification", showlegend = True, titlefont = dict(size = 20))
+    fig['layout'].update(title = "Worst Case Probabilities, Growth Damage Specification", showlegend = True, titlefont = dict(size = 20), height = 450)
 
     for i in range(len(years)):
 
@@ -478,11 +478,11 @@ def growthSCCDecomposePlot(SCCs, ξ):
 
         dict(x=x2, y=y2, text="Uncertainty", textangle=0, ax=-100,
         ay=0, font=dict(color="black", size=12), arrowcolor="black",
-        arrowsize=3, arrowwidth=1, arrowhead=1),
+        arrowsize=3, arrowwidth=1, arrowhead=1)]
 
-        dict(x=x3, y=y3, text="External", textangle=0, ax=-80,
-            ay=80, font=dict(color="black", size=12), arrowcolor="black",
-            arrowsize=3, arrowwidth=1, arrowhead=1)]
+        # dict(x=x3, y=y3, text="External", textangle=0, ax=-80,
+        #     ay=80, font=dict(color="black", size=12), arrowcolor="black",
+        #     arrowsize=3, arrowwidth=1, arrowhead=1)]
 
     layout = dict(title = 'Social Cost of Carbon, {} Specification'.format(key), 
               titlefont = dict(size = 20),
@@ -495,5 +495,5 @@ def growthSCCDecomposePlot(SCCs, ξ):
               annotations=annotations
               )
 
-    fig = dict(data = [total, external, uncertainty], layout = layout)
+    fig = dict(data = [total, uncertainty], layout = layout)
     iplot(fig)
