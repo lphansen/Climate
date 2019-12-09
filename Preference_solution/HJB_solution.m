@@ -10,23 +10,24 @@ mex solveCGNatural.cpp;
 
 %% Step 1: Specify ambiguity and damage level
 
-% Ambiguity averse, weighted damage
-ambiguity = 'averse'
-damage_level = 'weighted'
+% Ambiguity setting: 'averse' or 'neutral'
+ambiguity = 'averse';
+% Damage setting: 'high', 'low', or 'weighted'
+damage_level = 'weighted';
 
-if ambiguity == 'averse'
+if strcmp(ambiguity,'averse')
     xi_p = 1 ./ 4000; % ambiguity parameter
-elseif ambiguity == 'neutral'
+elseif strcmp(ambiguity,'neutral')
     xi_p = 1000; % ambiguity parameter
 else
     disp('Error: please choose between ''averse'' and ''weighted'' for ambiguity level');
 end
 
-if damage_level == 'high'
+if strcmp(damage_level,'high')
     weight = 0.0; % weight on nordhaus
-elseif damage_level == 'low'
+elseif strcmp(damage_level,'low')
     weight = 1.0; % weight on nordhaus
-elseif damage_level == 'weighted'
+elseif strcmp(damage_level,'weighted')
     weight = 0.5; % weight on nordhaus
 else
     disp('Error: please choose from ''high'',''weighted'' and ''low'' for damage level')
@@ -427,18 +428,14 @@ save([ambiguity,'_',damage_level]); % save HJB solution
 
 %% Step 4: Simulation
 
-T = 100; % 400 years
+T = 100; % 100 years
 pers = 4*T; % quarterly
 dt = T/pers;
 nDims = 5;
 its = 1;
 
 efunc = griddedInterpolant(r_mat,F_mat,k_mat,e,'linear');
-if weight == 1
-    jfunc = griddedInterpolant(r_mat,F_mat,k_mat,j,'linear');
-else
-    j_psifunc = griddedInterpolant(r_mat,F_mat,k_mat,j.^psi_1,'linear');
-end
+j_psifunc = griddedInterpolant(r_mat,F_mat,k_mat,j.^psi_1,'linear');
 i_kfunc = griddedInterpolant(r_mat,F_mat,k_mat,i_k,'linear');
 
 v_drfunc = griddedInterpolant(r_mat,F_mat,k_mat,v0_dr,'linear');
@@ -450,7 +447,6 @@ pi_tilde_1func = griddedInterpolant(r_mat,F_mat,k_mat,pi_tilde_1_norm,'linear');
 pi_tilde_2func = griddedInterpolant(r_mat,F_mat,k_mat,1-pi_tilde_1_norm,'linear');
 
 e_func = @(x) efunc(log(x(:,1)),x(:,3),log(x(:,2)));
-% j_func = @(x) max(jfunc(log(x(:,1)),x(:,3),log(x(:,2))),0);
 j_func = @(x) exp(log(max(j_psifunc(log(x(:,1)),x(:,3),log(x(:,2))),0))/psi_1);
 i_k_func = @(x) i_kfunc(log(x(:,1)),x(:,3),log(x(:,2)));
 
