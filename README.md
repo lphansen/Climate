@@ -26,5 +26,5 @@ To copy the code to your machine, you may either download it from the Github web
 This project requires users to have access to Matlab software. For license, please visit https://www.mathworks.com/
 
 ### Preliminary steps
-As an example, if users wish to generate results for the growth model, first navigate to "Solver" folder and copy the "eigen3" folder and MarketIO.h file into "Growth_paper_appendix" folder. Then follow the instructions under "Growth_paper_appendix" folder for more details.
+As an example, if users wish to generate results for the growth model, first navigate to "Solver" folder and unzip the "eigen3" folder. Then, copy the "eigen3" folder and MarketIO.h file into "Growth_paper_appendix" folder. Follow the instructions under "Growth_paper_appendix" folder for more details.
 
