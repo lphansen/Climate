@@ -1,0 +1,6 @@
+eigen3/
+*.png
+*.mat
+*.o
+Jupyter_Notebooks/
+Python*Code/
