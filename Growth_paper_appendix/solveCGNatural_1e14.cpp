@@ -8,7 +8,7 @@
 #include <fstream>
 #include <algorithm>
 #include <random>
-
+#include <iomanip>
 //include Eigen
 #include "eigen3/Eigen/Dense"
 #include "eigen3/Eigen/Sparse"
@@ -23,7 +23,7 @@ typedef Eigen::Triplet<double> T;
 //include MEX related files
 #include "mex.h"
 #include "matrix.h"
-
+//using namespace std;
 /* ******************** */
 /* State Variable Class */
 /* ******************** */
@@ -190,7 +190,7 @@ void linearSysVars::constructMat(stateVars & state_vars) {
         atBound = -1;
         //check boundaries
         
-        matList.push_back(T(i,i, (0.0 - dt * A(i,0))  ));
+        matList.push_back(T(i,i, (1.0 - dt * A(i,0))  ));
         
         for (int n = (state_vars.N - 1); n >=0; --n ) {
             atBoundIndicators(n) = -1.0;
@@ -380,18 +380,20 @@ mexFunction(int nlhs,mxArray *plhs[],int nrhs,const mxArray *prhs[])
     /***************************************/
     
     /* Initialize Eigen's cg solver */
-    
+
     Eigen::VectorXd XiEVector;
     Eigen::LeastSquaresConjugateGradient<SpMat > cgE;
     //cgE.setMaxIterations(10000);
-    cgE.setTolerance( 0.000000001 );
+    cgE.setTolerance( 0.00000000000001 );
     cgE.compute(linearSys_vars.Le);
-    // print 
     XiEVector = cgE.solveWithGuess(v0,v1);
-    mexPrintf("CONJUGATE GRADIENT TOOK (number of iterations): %3i% \n",  cgE.iterations() );
-    mexPrintf("CONJUGATE GRADIENT error: %3f% \n",  cgE.error() );
+    
+    mexPrintf("CONJUGATE GRADIENT TOOK (number of iterations): %3i \n",  cgE.iterations() );
+    mexPrintf("CONJUGATE GRADIENT error: %.12f \n",  cgE.error() );
     mexEvalString("drawnow;");
     v1 = XiEVector;
+    //double final_error = cgE.error());
+    
     
     /* Try to use LU decomp*/
     /*

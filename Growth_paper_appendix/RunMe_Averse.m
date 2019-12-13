@@ -7,9 +7,10 @@
    clc;
    clear all;
 
-   run('Growth_Averse')
-   run('SCC_averse_base_1e9')
-   run('SCC_averse_worst_1e9')
+   run('Growth_Averse_approach_1')
+   % run('Growth_Averse_approach_2')
+   run('SCC_averse_base_1e14')
+   run('SCC_averse_worst_1e14')
    run('Sims_Jieyao_Averse')
    run('SCC_plot_JY_averse')
    

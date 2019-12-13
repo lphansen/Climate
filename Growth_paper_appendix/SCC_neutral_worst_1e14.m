@@ -1,4 +1,4 @@
-%%%%% This file solves Feyman Kac for the Ambiguity Averse model.
+%%%%% This file solves Feyman Kac for the Ambiguity Neutral model.
 % Authors: Mike Barnett, Jieyao Wang
 % Last update: Nov 20,2019
 
@@ -7,16 +7,17 @@ clear all
 clc
 
 %% Step 0: Load HJB results
-load([pwd,'/HJB_Growth_Averse']);
+load([pwd,'/HJB_Growth_Neutral_1e14']);
 
 %% Step 1: set up solver
 addpath('/mnt/ide0/home/wangjieyao/Climate/FT/')
 addpath('/home/wangjieyao/FT/')
 addpath('/Volumes/homes/FT/')
+
 %% Step 2: Solve Feyman-Kac
 [r_mat_1,t_mat_1,k_mat_1] = ndgrid(r,t,k); 
 
-	a1 = v0_dk.*zeros(size(t_mat));
+    a1 = v0_dk.*zeros(size(t_mat));
     b1 = v0_dk.*(gamma1(1)+gamma2(1).*t_bar);
     c1 = 2.*v0_dk.* gamma2(1).*(t_mat);
     
@@ -154,9 +155,10 @@ addpath('/Volumes/homes/FT/')
          +pi_tilde_7_norm.*dmg_tilt_7+pi_tilde_8_norm.*dmg_tilt_8...
          +pi_tilde_9_norm.*dmg_tilt_9;
 
+
     v0 = (alpha).*r_mat_1+(1-alpha).*k_mat_1;
     v1_initial = v0.*ones(size(r_mat_1)); 
-
+    
     %%%%%%%%% worst-case model %%%%%%%%%%
     A = -delta.*ones(size(r_mat_1));
     B_r = -e_star+Gamma_r.*(f.^Theta_r).*exp(Theta_r.*(k_mat - r_mat))-0.5.*(sigma_r.^2);
@@ -165,7 +167,7 @@ addpath('/Volumes/homes/FT/')
     C_rr = 0.5.*sigma_r.^2.*ones(size(r_mat_1));
     C_kk = 0.5.*sigma_k.^2.*ones(size(r_mat_1));
     C_tt = zeros(size(r_mat));
-    D = flow_tilted;
+    D = flow_tilted;        
     %%%%%%%% PDE inputs %%%%%%%%%%%
     stateSpace = [r_mat_1(:), t_mat_1(:), k_mat_1(:)]; 
     model      = {};
@@ -176,7 +178,7 @@ addpath('/Volumes/homes/FT/')
     model.v0   = v0(:).*0;
     model.dt   = 1.0;
     %%% solve system of equations
-    out = solveCGNatural_1_1e9(stateSpace, model);
+    out = solveCGNatural_1_1e14(stateSpace, model);
     out_comp = reshape(out,size(v0)).*ones(size(r_mat_1));
     
     disp(['Error: ', num2str(max(max(max(max(abs(out_comp - v1_initial))))))])
@@ -184,7 +186,7 @@ addpath('/Volumes/homes/FT/')
     
     v0 = v0.*ones(size(v0));
     v0 = reshape(out,size(v0));
-    
-filename2 = [pwd, '/SCC_mat_Cumu_worst_GrowthAmb_1e9'];
+
+filename2 = [pwd, '/SCC_mat_Cumu_worst_GrowthNoAmb_1e14'];
 
 save(filename2)

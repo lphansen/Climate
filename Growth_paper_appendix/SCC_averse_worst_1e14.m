@@ -1,4 +1,4 @@
-%%%%% This file solves Feyman Kac for the Ambiguity Neutral model.
+%%%%% This file solves Feyman Kac for the Ambiguity Averse model.
 % Authors: Mike Barnett, Jieyao Wang
 % Last update: Nov 20,2019
 
@@ -7,7 +7,7 @@ clear all
 clc
 
 %% Step 0: Load HJB results
-load([pwd,'/HJB_Growth_Neutral']);
+load([pwd,'/HJB_Growth_Averse_1e14']);
 
 %% Step 1: set up solver
 addpath('/mnt/ide0/home/wangjieyao/Climate/FT/')
@@ -16,7 +16,7 @@ addpath('/Volumes/homes/FT/')
 %% Step 2: Solve Feyman-Kac
 [r_mat_1,t_mat_1,k_mat_1] = ndgrid(r,t,k); 
 
-    a1 = v0_dk.*zeros(size(t_mat));
+	a1 = v0_dk.*zeros(size(t_mat));
     b1 = v0_dk.*(gamma1(1)+gamma2(1).*t_bar);
     c1 = 2.*v0_dk.* gamma2(1).*(t_mat);
     
@@ -153,22 +153,21 @@ addpath('/Volumes/homes/FT/')
          +pi_tilde_5_norm.*dmg_tilt_5+pi_tilde_6_norm.*dmg_tilt_6...
          +pi_tilde_7_norm.*dmg_tilt_7+pi_tilde_8_norm.*dmg_tilt_8...
          +pi_tilde_9_norm.*dmg_tilt_9;
-             
-             
+
     v0 = (alpha).*r_mat_1+(1-alpha).*k_mat_1;
     v1_initial = v0.*ones(size(r_mat_1)); 
-    
-    %%%%%%%%% baseline model %%%%%%%%%%
+
+    %%%%%%%%% worst-case model %%%%%%%%%%
     A = -delta.*ones(size(r_mat_1));
     B_r = -e_star+Gamma_r.*(f.^Theta_r).*exp(Theta_r.*(k_mat - r_mat))-0.5.*(sigma_r.^2);
-    B_k = Alpha+Gamma.*log(1+i_k./Theta)-0.5.*(sigma_k.^2)-Gamma_base;
+    B_k = Alpha+Gamma.*log(1+i_k./Theta)-0.5.*(sigma_k.^2)-Gamma_tilted;
     B_t = e_star.*exp(r_mat_1);
     C_rr = 0.5.*sigma_r.^2.*ones(size(r_mat_1));
     C_kk = 0.5.*sigma_k.^2.*ones(size(r_mat_1));
     C_tt = zeros(size(r_mat));
-    D = flow_base;
+    D = flow_tilted;
     %%%%%%%% PDE inputs %%%%%%%%%%%
-    stateSpace = [r_mat_1(:), t_mat_1(:), k_mat_1(:)]; %% vectorizing state space; this would correspond as the domain argument in the mex file
+    stateSpace = [r_mat_1(:), t_mat_1(:), k_mat_1(:)]; 
     model      = {};
     model.A    = A(:); 
     model.B    = [B_r(:), B_t(:), B_k(:)];
@@ -177,7 +176,7 @@ addpath('/Volumes/homes/FT/')
     model.v0   = v0(:).*0;
     model.dt   = 1.0;
     %%% solve system of equations
-    out = solveCGNatural_1_1e9(stateSpace, model);
+    out = solveCGNatural_1_1e14(stateSpace, model);
     out_comp = reshape(out,size(v0)).*ones(size(r_mat_1));
     
     disp(['Error: ', num2str(max(max(max(max(abs(out_comp - v1_initial))))))])
@@ -185,8 +184,7 @@ addpath('/Volumes/homes/FT/')
     
     v0 = v0.*ones(size(v0));
     v0 = reshape(out,size(v0));
- 
-filename2 = [pwd, '/SCC_mat_Cumu_base_GrowthNoAmb_1e9'];
+    
+filename2 = [pwd, '/SCC_mat_Cumu_worst_GrowthAmb_1e14'];
 
 save(filename2)
-
