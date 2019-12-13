@@ -1,8 +1,8 @@
-# Preference Damage Model
+# Consumption Damage Model
 
 ## Prerequisites
 
-Please follow instructions under the parent folder, and copy "eigen3" folder and MarketIO.h file from the "Solver" folder into this folder.
+Please follow instructions under the parent folder, and copy and unzip "eigen3" folder and MarketIO.h file from the "Solver" folder into this folder.
 
 ## Code Explanation:
 This directory contains code used to solve the model in the case of consumption damages. A few simple files generate the results reported in the paper:
