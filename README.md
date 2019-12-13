@@ -1,6 +1,6 @@
 
 # Pricing Uncertainty Induced by Climate Change
-This repository contains codes and jupyter notebooks which estimates and demonstrates results of the empirical model in "Pricing Uncertainty Induced by Climate Change" by [Michael Barnett][id3], [William Brock][id2] and [Lars Peter Hansen][id1]. Latest version could be found here[id4].
+This repository contains codes and jupyter notebooks which estimates and demonstrates results of the empirical model in "Pricing Uncertainty Induced by Climate Change" by [Michael Barnett][id3], [William Brock][id2] and [Lars Peter Hansen][id1]. Latest version could be found [here][id4].
 
 [id1]: https://larspeterhansen.org/
 [id2]: https://www.ssc.wisc.edu/~wbrock/
