@@ -22,7 +22,7 @@ cd some path
     - If you don’t have github installed, try installing it from this page: https://git-scm.com/download/win.
     - You can do this by running in the command prompt. 
 ```
-git clone https://github.com/andyjmwang/ClimateAP
+git clone https://github.com/lphansen/Climate
 ```
 3.	To download the data you'll need, go to https://drive.google.com/drive/folders/1TVVqditjA489NNSD8H32u0e4eIJkoj0r?usp=sharing and copy the .pickle files into the subfolder __data__ under the git repo __ClimateAP__ you just cloned.
 4.	Run __install.bat__ for those who used windows or run __install.sh__ for those who used Mac OS by double clicking the file.
