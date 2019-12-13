@@ -6,8 +6,8 @@ close all
 clear all
 clc
 
-load([pwd, '/HJB_Growth_Neutral']);
-filename = 'HJB_Growth_Neutral';
+load([pwd, '/HJB_Growth_Neutral_1e14']);
+filename = 'HJB_Growth_Neutral_1e14';
 
 filename2 = [filename,'_Sims_JY'];
 

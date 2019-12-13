@@ -9,7 +9,7 @@ clear all
 clc
 
 % load results
-file1 = [pwd, '/Averse_weighted'];
+file1 = [pwd, '/averse_weighted'];
 Model1 = load(file1,'RE','pi_tilde_1_norm','pi_tilde_2_norm','r_mat','k_mat','F_mat',...
     'beta_tilde_1','beta_f','lambda_tilde_1','xi_p','var_beta_f','xi_d',...
     'gamma_1','gamma_2','gamma_2_plus','power','gamma_bar','e','n','a','b'); 

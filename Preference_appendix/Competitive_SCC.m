@@ -8,7 +8,7 @@ close all;
 clear all;
 clc;
 
-file2 = [pwd, '/SCC_base_averse_weighted_400k'];
+file2 = [pwd, '/averse_weighted_SCC_base'];
 Model2 = load(file2,'v0','r_mat','k_mat','F_mat','i_k','e','v0_dk','v0_dr','xi_p',...
               'alpha','kappa','delta','expec_e_sum','xi_d','a','b','n','gamma_1','gamma_2','gamma_bar',...
               'bar_gamma_2_plus','beta_f','var_beta_f','power');
@@ -31,7 +31,7 @@ beta_f = Model2.beta_f;
 var_beta_f = Model2.var_beta_f;
 power = Model2.power;
 
-file1 = [pwd,'/Averse_weighted'];
+file1 = [pwd,'/averse_weighted'];
 Model1 = load(file1,'v0_dr','v0_dk','v0_dt','i_k','j','e','expec_e_sum');
 v0_dk = Model1.v0_dk;
 v0_dr = Model1.v0_dr;
@@ -64,7 +64,7 @@ ME2b = - V_d_baseline;
 SCC2_V_d_baseline = 1000*ME2b./MC;
 SCC2_V_d_baseline_func = griddedInterpolant(r_mat,F_mat,k_mat,SCC2_V_d_baseline,'linear');
 
-file2 = [pwd, '/SCC_worst_averse_weighted_400k'];
+file2 = [pwd, '/averse_weighted_SCC_worst'];
 Model2 = load(file2,'v0','r_mat','k_mat','F_mat');
 external_v0_worst = Model2.v0;
 r_mat = Model2.r_mat;

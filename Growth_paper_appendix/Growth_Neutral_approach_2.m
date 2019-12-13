@@ -1,12 +1,13 @@
-%%%%% This file generates HJB results for the Ambiguity Averse model.
+%%%%% This file generates HJB results for the Ambiguity Neutral model.
 % Authors: Mike Barnett, Jieyao Wang
-% Last update: Nov 20,2019
+% Last update: Dec 13,2019
 
 close all
 clear all
 clc
 
 %% Step 0: set up solver
+%%% change to path of the solver
 addpath('/mnt/ide0/home/wangjieyao/Climate/FT/')
 addpath('/home/wangjieyao/FT/')
 addpath('/Volumes/homes/FT/')
@@ -32,7 +33,7 @@ Theta_r = 0.142857142857143;
 t_bar = 13;
 
 % ambiguity parameter
-theta = 175;
+theta = 0.001;
 
 %% Step 2: solve HJB
 r_min = 0;
@@ -52,8 +53,8 @@ k = k_min:hk:k_max;
 
 [r_mat,t_mat,k_mat] = ndgrid(r,t,k); 
 
-dt = 0.3;
-tol = 1e-8;
+dt = 0.1;
+tol = 1e-14;
 v0 = (alpha).*r_mat+(1-alpha).*k_mat;
 v1_initial = v0.*ones(size(r_mat));
 out = v0;
@@ -363,7 +364,7 @@ model.D    = D(:);
 model.v0   = v0(:);
 model.dt   = dt;
 
-out = solveCGNatural_1e10(stateSpace, model);
+out = solveCGNatural_1e16(stateSpace, model);
 out_comp = reshape(out,size(v0)).*ones(size(r_mat));
     
 disp(['Error: ', num2str(max(max(max(abs(out_comp - v1_initial)))))])
@@ -378,13 +379,7 @@ lhs_err(iter) = lhs_error;
 while (max(max(max(max(abs(out_comp - vold)))))) > tol % check for convergence
     tic
     vold = v0 .* ones(size(v0));
-    
-    if iter > 2000
-       dt = 0.1;
-   elseif iter > 1000
-       dt = 0.2;
-   end
-    
+
     stateSpace = [r_mat(:), t_mat(:), k_mat(:)]; 
     model      = {};
     model.A    = A(:); 
@@ -394,7 +389,7 @@ while (max(max(max(max(abs(out_comp - vold)))))) > tol % check for convergence
     model.v0   = v0(:);
     model.dt   = dt;
 
-    out = solveCGNatural_1e10(stateSpace, model);
+    out = solveCGNatural_1e16(stateSpace, model);
     out_comp = reshape(out,size(v0)).*ones(size(r_mat));
     
     iter = iter+1;
@@ -402,7 +397,7 @@ while (max(max(max(max(abs(out_comp - vold)))))) > tol % check for convergence
 
     v0 = v0.*ones(size(v0));
     v0 = reshape(out,size(v0));
-
+    
     v0_dt = zeros(size(v0));
     v0_dt(:,2:end-1,:) = (1./(2.*ht)).*(v0(:,3:end,:)-v0(:,1:end-2,:));
     v0_dt(:,end,:) = (1./ht).*(v0(:,end,:)-v0(:,end-1,:));
@@ -423,9 +418,6 @@ while (max(max(max(max(abs(out_comp - vold)))))) > tol % check for convergence
     v0_drr(end,:,:) = (1./(hr.^2)).*(v0(end,:,:)+v0(end-2,:,:)-2.*v0(end-1,:,:));
     v0_drr(1,:,:) = (1./(hr.^2)).*(v0(3,:,:)+v0(1,:,:)-2.*v0(2,:,:));
     
-    v0_drr(v0_dr<1e-16) = 0;
-    v0_dr(v0_dr<1e-16) = 1e-16;
-    
     v0_dtt = zeros(size(v0));
     v0_dtt(:,2:end-1) = (1./(ht.^2)).*(v0(:,3:end)+v0(:,1:end-2)-2.*v0(:,2:end-1));
     v0_dtt(:,end) = (1./(ht.^2)).*(v0(:,end)+v0(:,end-2)-2.*v0(:,end-1));
@@ -434,13 +426,17 @@ while (max(max(max(max(abs(out_comp - vold)))))) > tol % check for convergence
     v0_dkk = zeros(size(v0));
     v0_dkk(:,:,2:end-1) = (1./(hk.^2)).*(v0(:,:,3:end)+v0(:,:,1:end-2)-2.*v0(:,:,2:end-1));
     v0_dkk(:,:,end) = (1./(hk.^2)).*(v0(:,:,end)+v0(:,:,end-2)-2.*v0(:,:,end-1));
-    v0_dkk(:,:,1) = (1./(hk.^2)).*(v0(:,:,3)+v0(:,:,1)-2.*v0(:,:,2));  
+    v0_dkk(:,:,1) = (1./(hk.^2)).*(v0(:,:,3)+v0(:,:,1)-2.*v0(:,:,2)); 
+    
+    v0_drr(v0_dr<1e-16) = 0;
+    v0_dr(v0_dr<1e-16) = 1e-16;
     
     e_hat = e_star;
     B1 = v0_dr-v0_dt.*exp(r_mat);  
     C1 = delta.*alpha;
     e = C1./B1;
     e_star = e;
+    
 
     Converged = 0;
     nums = 0;
@@ -453,7 +449,7 @@ while (max(max(max(max(abs(out_comp - vold)))))) > tol % check for convergence
             qstar = 2.*q;
         end
 
-        if (max(max(max(max(abs((qstar-q)./eta)))))<=1e-5)
+        if (max(max(max(max(abs((qstar-q)./eta)))))<=1e-10)
             Converged = 1; 
         end
         q = qstar;
@@ -649,6 +645,8 @@ while (max(max(max(max(abs(out_comp - vold)))))) > tol % check for convergence
     toc
 end
 
-s0 = '/HJB_Growth_Averse';
+s0 = '/HJB_Growth_Neutral';
 filename = [pwd, s0];
 save(filename);
+
+
