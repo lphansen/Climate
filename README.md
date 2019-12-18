@@ -7,9 +7,6 @@ This repository contains codes and jupyter notebooks which estimates and demonst
 [id3]: https://sites.google.com/site/michaelduglasbarnett/home
 [id4]: https://larspeterhansen.org/research/papers/
 
-To-dos:
-1. growth model numerical issues (wait for results)
-
 ## Acessing our jupyter notebook
 To access our notebook, please follow steps below:
 1.	Open a Windows command prompt or Mac command terminal and change into the folder you would like to store the files. 
