@@ -7,50 +7,49 @@ clear all
 clc
 
 %% Step 0: Load HJB results
-load([pwd,'/HJB_Growth_Averse_1e14']);
+load([pwd,'/HJB_Growth_Averse']);
 
 %% Step 1: set up solver
 addpath('/mnt/ide0/home/wangjieyao/Climate/FT/')
 addpath('/home/wangjieyao/FT/')
 addpath('/Volumes/homes/FT/')
 %% Step 2: Solve Feyman-Kac
-[r_mat_1,t_mat_1,k_mat_1] = ndgrid(r,t,k); 
 
-	a1 = v0_dk.*zeros(size(t_mat));
+	a1 = v0_dk.*zeros(size(F_mat));
     b1 = v0_dk.*(gamma1(1)+gamma2(1).*t_bar);
-    c1 = 2.*v0_dk.* gamma2(1).*(t_mat);
+    c1 = 2.*v0_dk.* gamma2(1).*(F_mat);
     
-    a2 = v0_dk.*zeros(size(t_mat));
+    a2 = v0_dk.*zeros(size(F_mat));
     b2 = v0_dk.*(gamma1(2)+gamma2(2).*t_bar);
-    c2 = 2.*v0_dk.*gamma2(2).*(t_mat);
+    c2 = 2.*v0_dk.*gamma2(2).*(F_mat);
     
-    a3 = v0_dk.*zeros(size(t_mat));
+    a3 = v0_dk.*zeros(size(F_mat));
     b3 = v0_dk.*(gamma1(3)+gamma2(3).*t_bar);
-    c3 = 2.*v0_dk.*gamma2(3).*(t_mat);
+    c3 = 2.*v0_dk.*gamma2(3).*(F_mat);
     
-    a4 = v0_dk.*zeros(size(t_mat));
+    a4 = v0_dk.*zeros(size(F_mat));
     b4 = v0_dk.*(gamma1(4)+gamma2(4).*t_bar);
-    c4 = 2.*v0_dk.*gamma2(4).*(t_mat);
+    c4 = 2.*v0_dk.*gamma2(4).*(F_mat);
     
-    a5 = v0_dk.*zeros(size(t_mat));
+    a5 = v0_dk.*zeros(size(F_mat));
     b5 = v0_dk.*(gamma1(5)+gamma2(5).*t_bar);
-    c5 = 2.*v0_dk.*gamma2(5).*(t_mat);
+    c5 = 2.*v0_dk.*gamma2(5).*(F_mat);
     
-    a6 = v0_dk.*zeros(size(t_mat));
+    a6 = v0_dk.*zeros(size(F_mat));
     b6 = v0_dk.*(gamma1(6)+gamma2(6).*t_bar);
-    c6 = 2.*v0_dk.*gamma2(6).*(t_mat);
+    c6 = 2.*v0_dk.*gamma2(6).*(F_mat);
     
-    a7 = v0_dk.*zeros(size(t_mat));
+    a7 = v0_dk.*zeros(size(F_mat));
     b7 = v0_dk.*(gamma1(7)+gamma2(7).*t_bar);
-    c7 = 2.*v0_dk.*gamma2(7).*(t_mat);
+    c7 = 2.*v0_dk.*gamma2(7).*(F_mat);
     
-    a8 = v0_dk.*zeros(size(t_mat));
+    a8 = v0_dk.*zeros(size(F_mat));
     b8 = v0_dk.*(gamma1(8)+gamma2(8).*t_bar);
-    c8 = 2.*v0_dk.*gamma2(8).*(t_mat);
+    c8 = 2.*v0_dk.*gamma2(8).*(F_mat);
     
-    a9 = v0_dk.*zeros(size(t_mat));
+    a9 = v0_dk.*zeros(size(F_mat));
     b9 = v0_dk.*(gamma1(9)+gamma2(9).*t_bar);
-    c9 = 2.*v0_dk.*gamma2(9).*(t_mat);
+    c9 = 2.*v0_dk.*gamma2(9).*(F_mat);
     
     dmg_tilt_1 = a1+b1.*beta_tilde_1+0.5.*c1.*(beta_tilde_1.^2)+0.5.*c1./lambda_tilde_1;    
     dmg_tilt_2 = a2+b2.*beta_tilde_2+0.5.*c2.*(beta_tilde_2.^2)+0.5.*c2./lambda_tilde_2;    
@@ -86,40 +85,40 @@ addpath('/Volumes/homes/FT/')
          +pi_tilde_9_norm.*dmg_tilt_9;
 % % % % % % % % % % % % % % % % % % % % % % % 
     a1 = v0_dk.*(gamma0(1)+gamma1(1).*t_bar+0.5.*gamma2(1).*(t_bar.^2));
-    b1 = v0_dk.*t_mat.*(gamma1(1)+gamma2(1).*t_bar);
-    c1 = v0_dk.*gamma2(1).*(t_mat.^2);
+    b1 = v0_dk.*F_mat.*(gamma1(1)+gamma2(1).*t_bar);
+    c1 = v0_dk.*gamma2(1).*(F_mat.^2);
 
     a2 = v0_dk.*(gamma0(2)+gamma1(2).*t_bar+0.5.*gamma2(2).*(t_bar.^2));
-    b2 = v0_dk.*t_mat.*(gamma1(2)+gamma2(2).*t_bar);
-    c2 = v0_dk.*gamma2(2).*(t_mat.^2);
+    b2 = v0_dk.*F_mat.*(gamma1(2)+gamma2(2).*t_bar);
+    c2 = v0_dk.*gamma2(2).*(F_mat.^2);
 
     a3 = v0_dk.*(gamma0(3)+gamma1(3).*t_bar+0.5.*gamma2(3).*(t_bar.^2));
-    b3 = v0_dk.*t_mat.*(gamma1(3)+gamma2(3).*t_bar);
-    c3 = v0_dk.*gamma2(3).*(t_mat.^2);
+    b3 = v0_dk.*F_mat.*(gamma1(3)+gamma2(3).*t_bar);
+    c3 = v0_dk.*gamma2(3).*(F_mat.^2);
 
     a4 = v0_dk.*(gamma0(4)+gamma1(4).*t_bar+0.5.*gamma2(4).*(t_bar.^2));
-    b4 = v0_dk.*t_mat.*(gamma1(4)+gamma2(4).*t_bar);
-    c4 = v0_dk.*gamma2(4).*(t_mat.^2);
+    b4 = v0_dk.*F_mat.*(gamma1(4)+gamma2(4).*t_bar);
+    c4 = v0_dk.*gamma2(4).*(F_mat.^2);
 
     a5 = v0_dk.*(gamma0(5)+gamma1(5).*t_bar+0.5.*gamma2(5).*(t_bar.^2));
-    b5 = v0_dk.*t_mat.*(gamma1(5)+gamma2(5).*t_bar);
-    c5 = v0_dk.*gamma2(5).*(t_mat.^2);
+    b5 = v0_dk.*F_mat.*(gamma1(5)+gamma2(5).*t_bar);
+    c5 = v0_dk.*gamma2(5).*(F_mat.^2);
 
     a6 = v0_dk.*(gamma0(6)+gamma1(6).*t_bar+0.5.*gamma2(6).*(t_bar.^2));
-    b6 = v0_dk.*t_mat.*(gamma1(6)+gamma2(6).*t_bar);
-    c6 = v0_dk.*gamma2(6).*(t_mat.^2);
+    b6 = v0_dk.*F_mat.*(gamma1(6)+gamma2(6).*t_bar);
+    c6 = v0_dk.*gamma2(6).*(F_mat.^2);
 
     a7 = v0_dk.*(gamma0(7)+gamma1(7).*t_bar+0.5.*gamma2(7).*(t_bar.^2));
-    b7 = v0_dk.*t_mat.*(gamma1(7)+gamma2(7).*t_bar);
-    c7 = v0_dk.*gamma2(7).*(t_mat.^2);
+    b7 = v0_dk.*F_mat.*(gamma1(7)+gamma2(7).*t_bar);
+    c7 = v0_dk.*gamma2(7).*(F_mat.^2);
 
     a8 = v0_dk.*(gamma0(8)+gamma1(8).*t_bar+0.5.*gamma2(8).*(t_bar.^2));
-    b8 = v0_dk.*t_mat.*(gamma1(8)+gamma2(8).*t_bar);
-    c8 = v0_dk.*gamma2(8).*(t_mat.^2);
+    b8 = v0_dk.*F_mat.*(gamma1(8)+gamma2(8).*t_bar);
+    c8 = v0_dk.*gamma2(8).*(F_mat.^2);
 
     a9 = v0_dk.*(gamma0(9)+gamma1(9).*t_bar+0.5.*gamma2(9).*(t_bar.^2));
-    b9 = v0_dk.*t_mat.*(gamma1(9)+gamma2(9).*t_bar);
-    c9 = v0_dk.*gamma2(9).*(t_mat.^2);
+    b9 = v0_dk.*F_mat.*(gamma1(9)+gamma2(9).*t_bar);
+    c9 = v0_dk.*gamma2(9).*(F_mat.^2);
     
     dmg_tilt_1 = a1+b1.*beta_tilde_1+0.5.*c1.*(beta_tilde_1.^2)+0.5.*c1./lambda_tilde_1;    
     dmg_tilt_2 = a2+b2.*beta_tilde_2+0.5.*c2.*(beta_tilde_2.^2)+0.5.*c2./lambda_tilde_2;    
@@ -154,20 +153,20 @@ addpath('/Volumes/homes/FT/')
          +pi_tilde_7_norm.*dmg_tilt_7+pi_tilde_8_norm.*dmg_tilt_8...
          +pi_tilde_9_norm.*dmg_tilt_9;
 
-    v0 = (alpha).*r_mat_1+(1-alpha).*k_mat_1;
-    v1_initial = v0.*ones(size(r_mat_1)); 
+    v0 = (kappa).*r_mat+(1-kappa).*k_mat;
+    v1_initial = v0.*ones(size(r_mat)); 
 
     %%%%%%%%% worst-case model %%%%%%%%%%
-    A = -delta.*ones(size(r_mat_1));
-    B_r = -e_star+Gamma_r.*(f.^Theta_r).*exp(Theta_r.*(k_mat - r_mat))-0.5.*(sigma_r.^2);
-    B_k = Alpha+Gamma.*log(1+i_k./Theta)-0.5.*(sigma_k.^2)-Gamma_tilted;
-    B_t = e_star.*exp(r_mat_1);
-    C_rr = 0.5.*sigma_r.^2.*ones(size(r_mat_1));
-    C_kk = 0.5.*sigma_k.^2.*ones(size(r_mat_1));
+    A = -delta.*ones(size(r_mat));
+    B_r = -e_star+psi_0.*(j.^psi_1).*exp(psi_1.*(k_mat - r_mat))-0.5.*(sigma_r.^2);
+    B_k = mu_k+phi_0.*log(1+i_k.*phi_1)-0.5.*(sigma_k.^2)-Gamma_tilted;
+    B_t = e_star.*exp(r_mat);
+    C_rr = 0.5.*sigma_r.^2.*ones(size(r_mat));
+    C_kk = 0.5.*sigma_k.^2.*ones(size(r_mat));
     C_tt = zeros(size(r_mat));
     D = flow_tilted;
     %%%%%%%% PDE inputs %%%%%%%%%%%
-    stateSpace = [r_mat_1(:), t_mat_1(:), k_mat_1(:)]; 
+    stateSpace = [r_mat(:), F_mat(:), k_mat(:)]; 
     model      = {};
     model.A    = A(:); 
     model.B    = [B_r(:), B_t(:), B_k(:)];
@@ -177,7 +176,7 @@ addpath('/Volumes/homes/FT/')
     model.dt   = 1.0;
     %%% solve system of equations
     out = solveCGNatural_1_1e14(stateSpace, model);
-    out_comp = reshape(out,size(v0)).*ones(size(r_mat_1));
+    out_comp = reshape(out,size(v0)).*ones(size(r_mat));
     
     disp(['Error: ', num2str(max(max(max(max(abs(out_comp - v1_initial))))))])
     iter = 1;
