@@ -482,7 +482,7 @@ void linearSysVars::constructMatFK(stateVars & state_vars) {
     Le.makeCompressed(); 
 }
 
-py::tuple solveFT(Eigen::Ref<MatrixXdR> preLoadMat, Eigen::Ref<MatrixXdR> A, Eigen::Ref<MatrixXdR> B, Eigen::Ref<MatrixXdR> C,  Eigen::Ref<MatrixXdR> D, Eigen::Ref<MatrixXdR> v0, double dt)
+py::tuple solveFT(Eigen::Ref<MatrixXdR> preLoadMat, Eigen::Ref<MatrixXdR> A, Eigen::Ref<MatrixXdR> B, Eigen::Ref<MatrixXdR> C,  Eigen::Ref<MatrixXdR> D, Eigen::Ref<MatrixXdR> v0, double dt, int tol)
 {
     py::tuple data(3);
     stateVars stateSpace(preLoadMat);
@@ -517,7 +517,7 @@ py::tuple solveFT(Eigen::Ref<MatrixXdR> preLoadMat, Eigen::Ref<MatrixXdR> A, Eig
     Eigen::VectorXd XiEVector;
     Eigen::LeastSquaresConjugateGradient<SpMat > cgE;
     // cgE.setMaxIterations(10000);
-    cgE.setTolerance( 0.0000000001 );
+    cgE.setTolerance( pow(10,tol) );
     cgE.compute(linearSys_vars.Le);
 
     XiEVector = cgE.solveWithGuess(rhs, v0);
@@ -581,7 +581,7 @@ PYBIND11_MODULE(SolveLinSys,m){
 
     m.def("solveFT", &solveFT, py::arg("stateSpace"),
         py::arg("A"), py::arg("B"), py::arg("C"), py::arg("D"),
-        py::arg("v0"), py::arg("dt"));
+        py::arg("v0"), py::arg("dt"), py::arg("tol"));
 
     m.def("solveFK", &solveFK, py::arg("stateSpace"),
         py::arg("A"), py::arg("B"), py::arg("C"), py::arg("D"),

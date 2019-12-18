@@ -13,7 +13,7 @@ import pickle
 import SolveLinSys
 
 def finiteDiff(data, dim, order, dlt, cap = None):  
-# compute the central difference derivatives for given input and dimensions
+    # compute the central difference derivatives for given input and dimensions
     res = np.zeros(data.shape)
     l = len(data.shape)
     if l == 3:
@@ -131,13 +131,13 @@ def quad_points_hermite(n):
 
 def quad_int(f,a,b,n,method):
     """
-This function takes a function f to integrate from the multidimensional
-interval specified by the row vectors a and b. N different points are used
-in the quadrature method. Legendre and Hermite basis functions are
-currently supported. In the case of Hermite methodology b is the normal
-density and a is the normal mean.
+    This function takes a function f to integrate from the multidimensional
+    interval specified by the row vectors a and b. N different points are used
+    in the quadrature method. Legendre and Hermite basis functions are
+    currently supported. In the case of Hermite methodology b is the normal
+    density and a is the normal mean.
 
-Created by John Wilson (johnrwilson@uchicago.edu) & Updaed by Jiaming Wang (Jiamingwang@uchicago.edu)
+    Created by John Wilson (johnrwilson@uchicago.edu) & Updaed by Jiaming Wang (Jiamingwang@uchicago.edu)
     """
     if method == 'legendre':
         
@@ -159,7 +159,7 @@ Created by John Wilson (johnrwilson@uchicago.edu) & Updaed by Jiaming Wang (Jiam
     if tp is np.float64 or tp is int or tp is np.double:
         res = 0
         for i in range(n):
-#             pdb.set_trace()
+    #             pdb.set_trace()
             res += ws[i] * g(xs[i])
     else:
         raise ValueError('dimension is not 1')
@@ -177,7 +177,7 @@ def cap(x, lb, ub):
             return lb
 
 
-def PDESolver(stateSpace, A, B_r, B_f, B_k, C_rr, C_ff, C_kk, D, v0, ε = 1, solverType = 'False Transient'):
+def PDESolver(stateSpace, A, B_r, B_f, B_k, C_rr, C_ff, C_kk, D, v0, ε = 1, tol = -10, solverType = 'False Transient'):
 
     if solverType == 'False Transient':
         A = A.reshape(-1,1,order = 'F')
@@ -185,8 +185,7 @@ def PDESolver(stateSpace, A, B_r, B_f, B_k, C_rr, C_ff, C_kk, D, v0, ε = 1, sol
         C = np.hstack([C_rr.reshape(-1,1,order = 'F'), C_ff.reshape(-1,1,order = 'F'), C_kk.reshape(-1,1,order = 'F')])
         D = D.reshape(-1,1,order = 'F')
         v0 = v0.reshape(-1,1,order = 'F')
-        v1 = v0.reshape(-1,1,order = 'F')
-        out = SolveLinSys.solveFT(stateSpace, A, B, C, D, v0, ε)
+        out = SolveLinSys.solveFT(stateSpace, A, B, C, D, v0, ε, tol)
 
         return out
 
@@ -444,14 +443,31 @@ def growthSCCDecomposePlot(SCCs, ξ):
 
     if ξ < 1:  # Averse
         data = SCCs
-        x1, y1, x2, y2, x3, y3 = 60, 1500, 80, 1120, 93, 1280
+        x1, y1, x2, y2 = 60, 1500, 80, 1120
         lgd = False
         key = 'Growth Averse'
+        
+        annotations=[dict(x=x1, y=y1, text="Total", textangle=0, ax=-100,
+            ay=-75, font=dict(color="black", size=12), arrowcolor="black",
+            arrowsize=3, arrowwidth=1, arrowhead=1),
+
+            dict(x=x2, y=y2, text="Uncertainty", textangle=0, ax=-100,
+            ay=0, font=dict(color="black", size=12), arrowcolor="black",
+            arrowsize=3, arrowwidth=1, arrowhead=1)]
 
     else:      # Neutral
         data = SCCs
+        x1, y1, x2, y2 = 60, 900, 80, 0
         lgd = True
         key = 'Growth Neutral'
+        annotations=[dict(x=x1, y=y1, text="Total", textangle=0, ax=-100,
+            ay=-75, font=dict(color="black", size=12), arrowcolor="black",
+            arrowsize=3, arrowwidth=1, arrowhead=1),
+
+            dict(x=x2, y=y2, text="Uncertainty", textangle=0, ax=-100,
+            ay=-50, font=dict(color="black", size=12), arrowcolor="black",
+            arrowsize=3, arrowwidth=1, arrowhead=1)]
+
 
     total_SCC = np.array(data['SCC'])
     external_SCC = np.array(data['SCC2'])
@@ -463,22 +479,16 @@ def growthSCCDecomposePlot(SCCs, ξ):
            name = 'Total', line = dict(color = '#1f77b4', dash = 'solid', width = 3),\
                showlegend = lgd)
     external = go.Scatter(x = x, y = external_SCC,
-           name = 'Ambiguity', line = dict(color = 'red', dash = 'dot', width = 3),\
+           name = 'Ambiguity', line = dict(color = 'green', dash = 'dashdot', width = 3),\
                   showlegend = lgd)
     uncertainty = go.Scatter(x = x, y = uncertainty_SCC,
-           name = 'No Ambiguity', line = dict(color = 'green', dash = 'dashdot', width = 3),\
+           name = 'Uncertainty', line = dict(color = 'red', dash = 'dot', width = 3),\
                      showlegend = lgd)
     private = go.Scatter(x = x, y = private_SCC,
            name = 'Private', line = dict(color = 'black', width = 3),\
                  showlegend = False)
 
-    annotations=[dict(x=x1, y=y1, text="Total", textangle=0, ax=-100,
-        ay=-75, font=dict(color="black", size=12), arrowcolor="black",
-        arrowsize=3, arrowwidth=1, arrowhead=1),
-
-        dict(x=x2, y=y2, text="Uncertainty", textangle=0, ax=-100,
-        ay=0, font=dict(color="black", size=12), arrowcolor="black",
-        arrowsize=3, arrowwidth=1, arrowhead=1)]
+    
 
         # dict(x=x3, y=y3, text="External", textangle=0, ax=-80,
         #     ay=80, font=dict(color="black", size=12), arrowcolor="black",

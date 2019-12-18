@@ -112,7 +112,7 @@ def piecewise_est_quad(x, y1, y2, order):
 
 def gen_distributions(xi):
 
-    data = np.loadtxt("TCRE_MacDougallEtAl2017_update.csv", skiprows=1, delimiter=',')
+    data = np.loadtxt("./data/TCRE_MacDougallEtAl2017_update.csv", skiprows=1, delimiter=',')
 
     sigma = np.std(data, ddof = 1)
     mu = np.mean(data)
