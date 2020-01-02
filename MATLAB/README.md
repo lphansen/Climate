@@ -1,6 +1,6 @@
 ## Acessing our MATLAB codes
 To copy the code to your machine, you may either download it from the Github website directly or you may clone the repository in read-only mode.
-Above jupyter notebooks provided a clean version of the code we used while we still upload our MATLAB source codes are provided here for user to play with. They're structured as below:
+Jupyter notebooks located in the seperate subfolder provided a clean version of the code we used while we still upload our MATLAB source codes are provided here for user to play with. They're structured as below:
 
 ### Growth_paper_appendix
 This folder contains Matlab scripts that generate the results related to the growth damage model.
