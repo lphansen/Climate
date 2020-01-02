@@ -177,7 +177,7 @@ def cap(x, lb, ub):
             return lb
 
 
-def PDESolver(stateSpace, A, B_r, B_f, B_k, C_rr, C_ff, C_kk, D, v0, ε = 1, tol = -10, solverType = 'False Transient'):
+def PDESolver(stateSpace, A, B_r, B_f, B_k, C_rr, C_ff, C_kk, D, v0, ε = 1, tol = -10, smartguess = False, solverType = 'False Transient'):
 
     if solverType == 'False Transient':
         A = A.reshape(-1,1,order = 'F')
@@ -191,12 +191,17 @@ def PDESolver(stateSpace, A, B_r, B_f, B_k, C_rr, C_ff, C_kk, D, v0, ε = 1, tol
 
     elif solverType == 'Feyman Kac':
         
+        if smartguess:
+            iters = 1
+        else:
+            iters = 400000
+            
         A = A.reshape(-1, 1, order='F')
         B = np.hstack([B_r.reshape(-1, 1, order='F'), B_f.reshape(-1, 1, order='F'), B_k.reshape(-1, 1, order='F')])
         C = np.hstack([C_rr.reshape(-1, 1, order='F'), C_ff.reshape(-1, 1, order='F'), C_kk.reshape(-1, 1, order='F')])
         D = D.reshape(-1, 1, order='F')
         v0 = v0.reshape(-1, 1, order='F')
-        out = SolveLinSys.solveFK(stateSpace, A, B, C, D, v0)
+        out = SolveLinSys.solveFK(stateSpace, A, B, C, D, v0, iters)
 
         return out
 

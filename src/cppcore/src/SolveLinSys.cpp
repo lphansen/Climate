@@ -528,7 +528,7 @@ py::tuple solveFT(Eigen::Ref<MatrixXdR> preLoadMat, Eigen::Ref<MatrixXdR> A, Eig
 
 }
 
-py::tuple solveFK(Eigen::Ref<MatrixXdR> preLoadMat, Eigen::Ref<MatrixXdR> A, Eigen::Ref<MatrixXdR> B, Eigen::Ref<MatrixXdR> C,  Eigen::Ref<MatrixXdR> D, Eigen::Ref<MatrixXdR> v0)
+py::tuple solveFK(Eigen::Ref<MatrixXdR> preLoadMat, Eigen::Ref<MatrixXdR> A, Eigen::Ref<MatrixXdR> B, Eigen::Ref<MatrixXdR> C,  Eigen::Ref<MatrixXdR> D, Eigen::Ref<MatrixXdR> v0, int iters)
 {
     py::tuple data(3);
     stateVars stateSpace(preLoadMat);
@@ -560,7 +560,7 @@ py::tuple solveFK(Eigen::Ref<MatrixXdR> preLoadMat, Eigen::Ref<MatrixXdR> A, Eig
     /* Initialize Eigen's cg solver */
     Eigen::VectorXd XiEVector;
     Eigen::LeastSquaresConjugateGradient<SpMat > cgE;
-    cgE.setMaxIterations(1);
+    cgE.setMaxIterations(iters);
     cgE.setTolerance( 0.000001 );
     cgE.compute(linearSys_vars.Le);  // update with Sparse matrix A
     XiEVector = cgE.solveWithGuess(rhs,v0);  // (rhs, guess)
@@ -585,6 +585,6 @@ PYBIND11_MODULE(SolveLinSys,m){
 
     m.def("solveFK", &solveFK, py::arg("stateSpace"),
         py::arg("A"), py::arg("B"), py::arg("C"), py::arg("D"),
-        py::arg("v0"));
+        py::arg("v0"), py::arg("iters"));
 
 }

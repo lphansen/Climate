@@ -130,6 +130,7 @@ compSpecs['F_max'] = 4000
 compSpecs['K_max'] = 12
 compSpecs['nF'] = 40
 compSpecs['tol'] = 1e-8
+smart_guess = 0
 
 class GridInterp():
 
@@ -1948,6 +1949,8 @@ class preferenceModel():
         
     def __PDESolver__(self, A, B_r, B_f, B_k, C_rr, C_ff, C_kk, D, v0, ε = 0.1, tol = -10, solverType = 'False Transient'):
 
+        global smart_guess
+
         if solverType == 'False Transient':
 
             A = A.reshape(-1,1,order = 'F')
@@ -1961,12 +1964,18 @@ class preferenceModel():
             return out
 
         elif solverType == 'Feyman Kac':
+            if smart_guess:
+                iters = 1
+            else:
+                iters = 400000
+
             A = A.reshape(-1, 1, order='F')
             B = np.hstack([B_r.reshape(-1, 1, order='F'), B_f.reshape(-1, 1, order='F'), B_k.reshape(-1, 1, order='F')])
             C = np.hstack([C_rr.reshape(-1, 1, order='F'), C_ff.reshape(-1, 1, order='F'), C_kk.reshape(-1, 1, order='F')])
             D = D.reshape(-1, 1, order='F')
             v0 = v0.reshape(-1, 1, order='F')
-            out = SolveLinSys.solveFK(self.stateSpace, A, B, C, D, v0)
+            out = SolveLinSys.solveFK(self.stateSpace, A, B, C, D, v0, iters)
+
             return out
 
         else:
@@ -2915,7 +2924,8 @@ class growthModel():
         self.REs = {}
         
     def __PDESolver__(self, A, B_r, B_f, B_k, C_rr, C_ff, C_kk, D, v0, ε = 0.1, tol = -10, solverType = 'False Transient'):
-
+        global smart_guess
+        
         if solverType == 'False Transient':
 
             A = A.reshape(-1,1,order = 'F')
@@ -2924,22 +2934,24 @@ class growthModel():
             D = D.reshape(-1,1,order = 'F')
             v0 = v0.reshape(-1,1,order = 'F')
             # v1 = v0
-            out = SolveLinSys.solveFT(self.stateSpace, A, B, C, D, v0, ε, tol)
+            out = SolveLinSys.solveFT(self.stateSpace, A, B, C, D, v0, ε)
             # print(np.max(abs(v1 - v0)))
             return out
 
         elif solverType == 'Feyman Kac':
+            if smart_guess:
+                iters = 1
+            else:
+                iters = 400000
+
             A = A.reshape(-1, 1, order='F')
             B = np.hstack([B_r.reshape(-1, 1, order='F'), B_f.reshape(-1, 1, order='F'), B_k.reshape(-1, 1, order='F')])
             C = np.hstack([C_rr.reshape(-1, 1, order='F'), C_ff.reshape(-1, 1, order='F'), C_kk.reshape(-1, 1, order='F')])
             D = D.reshape(-1, 1, order='F')
-            v0 = v0.reshape(-1, 1, order='F') 
-            out = SolveLinSys.solveFK(self.stateSpace, A, B, C, D, v0)
-            return out
+            v0 = v0.reshape(-1, 1, order='F')
+            out = SolveLinSys.solveFK(self.stateSpace, A, B, C, D, v0, iters)
 
-        else:
-            raise ValueError('Solver Type Not Supported')
-            return None
+            return out
 
     def solveHJB(self, initial_guess = None):
         # damageSpec ~ dictionary type that documents the 
