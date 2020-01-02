@@ -11,7 +11,7 @@ This repository contains codes and jupyter notebooks which estimates and demonst
 To access our notebook, please follow steps below:
 1.	Open a Windows command prompt or Mac command terminal and change into the folder you would like to store the files. 
     - You can do this using the command __cd__ in the command prompt.    
-    - For example, running "cd “C:\Users\jiamingwang\Documents\Python Projects” " (don’t forget “” around the path name to use an absolute path) would lead me to my designated folder.
+    - For example, running "cd “C:\Users\username\python” " (don’t forget “” around the path name to use an absolute path) would lead me to my designated folder.
 ```
 cd [folder path name]” 
 ```
