@@ -28,7 +28,14 @@ git clone https://github.com/lphansen/Climate
 cd Climate
 jupyter notebook
 ```
-6.	"PaperResultsIllustration.ipynb" demonstrates interactive figures shown in the paper. “PreferenceModel.ipynb” demonstrates the computational details and codes on how we solve the model under consumption damage settings while “GrowthModel.ipynb” demonstrates growth damage settings. Click on the files to access them.
+    - If you don’t have anaconda3 and jupyter notebook installed, try installing from this page: https://jupyter.org/install.html
+6.	We provide three notebooks:
+    - "PaperResultsIllustration.ipynb" demonstrates interactive figures shown in the paper. 
+    - “ConsumptionModel.ipynb” demonstrates the computational details and codes on how we solve the model under consumption damage settings
+    - “GrowthModel.ipynb” demonstrates growth damage settings. Click on the files to access them.
+7. Run notebooks cell by cell or click "Run all" from "kernel" in the menu bar to see details about our model results and computational details.   
+    
+    
 
 ## Acessing our MATLAB codes
 Please refers to the MATLAB folder
