@@ -13,7 +13,7 @@ To access our notebook, please follow steps below:
     - You can do this using the command __cd__ in the command prompt.    
     - For example, running "cd “C:\Users\username\python” " (don’t forget “” around the path name to use an absolute path) would lead me to my designated folder.
 ```
-cd [folder path name]” 
+cd [folder path name]
 ```
 2.	Clone the github repository for the paper 
     - If you don’t have github installed, try installing it from this page: https://git-scm.com/download/win.
