@@ -13,7 +13,7 @@ To access our notebook, please follow steps below:
     - You can do this using the command __cd__ in the command prompt.    
     - For example, running "cd “C:\Users\username\python” " (don’t forget “” around the path name to use an absolute path) would lead me to my designated folder.
 ```
-cd [folder path name]” 
+cd [folder path name]
 ```
 2.	Clone the github repository for the paper 
     - If you don’t have github installed, try installing it from this page: https://git-scm.com/download/win.
@@ -24,11 +24,11 @@ git clone https://github.com/lphansen/Climate
 3.	To download the data you'll need, go to https://drive.google.com/drive/folders/1TVVqditjA489NNSD8H32u0e4eIJkoj0r?usp=sharing and copy the .pickle files into the subfolder __data__ under the git repo __Climate__ you just cloned.
 4.	Run __install.bat__ for those who used windows or run __install.sh__ for those who used Mac OS by double clicking the file.
 5.	Go back to command line prompt, change directories into the ‘Climate’ folder and open jupyter notebook by running below in command prompt
+    - If you don’t have anaconda3 and jupyter notebook installed, try installing from this page: https://jupyter.org/install.html
 ```
 cd Climate
 jupyter notebook
 ```
-    - If you don’t have anaconda3 and jupyter notebook installed, try installing from this page: https://jupyter.org/install.html
 6.	We provide three notebooks:
     - "PaperResultsIllustration.ipynb" demonstrates interactive figures shown in the paper. 
     - “ConsumptionModel.ipynb” demonstrates the computational details and codes on how we solve the model under consumption damage settings
