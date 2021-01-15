@@ -11,6 +11,7 @@ import plotly.graph_objs as go
 from plotly.offline import init_notebook_mode, iplot
 import pickle
 import SolveLinSys
+import numba as nb
 
 def finiteDiff(data, dim, order, dlt, cap = None):  
     # compute the central difference derivatives for given input and dimensions
@@ -128,6 +129,10 @@ def quad_points_hermite(n):
     w = np.sqrt(np.pi) * Vtop ** 2
     return (lambda0[i],w)
 
+@nb.jit(nopython = True, cache = True)
+def normpdf(x_raw, m, sig):
+    x = (x_raw - m) / sig
+    return np.exp(- x ** 2 / 2) / np.sqrt(2 * np.pi) / sig
 
 def quad_int(f,a,b,n,method):
     """
