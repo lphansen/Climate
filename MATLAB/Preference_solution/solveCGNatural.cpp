@@ -356,8 +356,8 @@ mexFunction(int nlhs,mxArray *plhs[],int nrhs,const mxArray *prhs[])
     
     Eigen::VectorXd v1; v1.resize(stateSpace.S, stateSpace.N); v1 = v0; // smart guess
     v0 = v0.array() + dt * D.array(); // transform v0 into rhs
-    saveMarket(v0,"rhs.dat");
-    saveMarket(v1,"v1.dat");
+//     saveMarket(v0,"rhs.dat");
+//     saveMarket(v1,"v1.dat");
 
     /*********************************************/
     /* Change RHS to reflect boundary conditions */
