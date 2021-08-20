@@ -330,6 +330,7 @@ while FC_Err > tol and episode < 2:
     out_comp_cpp = out_cpp[2].reshape(v0.shape,order = "F")
 
 
+
     # Transforming the 3-d coefficient matrix to 1-dimensional
     A = A.reshape(-1,1,order = 'F')
     B = np.hstack([B_r.reshape(-1,1,order = 'F'),B_f.reshape(-1,1,order = 'F'),B_k.reshape(-1,1,order = 'F')])
@@ -400,10 +401,11 @@ while FC_Err > tol and episode < 2:
     FC_Err = np.max(abs((out_comp - v0)))
 
     v_cpp = np.array(out_cpp[2])
-    # res_1 = np.max(np.abs(csr_mat*V - b))
-    res_2 = np.max(np.abs(csr_mat.multiply(v_cpp) - b))
+    np.save("v_cpp", v_cpp)
+    
+    res_1 = np.linalg.norm(csr_mat@v_cpp - b)
 
-    print(res_2)
+    print(res_1)
 
     if episode % 1 == 0:
         print("Episode {:d}: PDE Error: {:.10f}; False Transient Error: {:.10f};" .format(episode, PDE_Err, FC_Err))

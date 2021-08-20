@@ -7,7 +7,7 @@ echo ===========================================================================
 
 echo Starting installation process...
 if [[ $systemName == *"Darwin"* ]]; then
-  export MACOSX_DEPLOYMENT_TARGET=10.9
+  export MACOSX_DEPLOYMENT_TARGET=11.3
 fi
 echo ===============================================================================
 echo Step 1: Install numba and pybind11
