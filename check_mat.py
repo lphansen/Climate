@@ -14,5 +14,5 @@ v_cpp = np.load("v_cpp.npy")
 v_cpp.shape
 
 #%%
-res = np.max(np.abs(csr_mat.dot(v_cpp) - b))
+res = np.max(np.abs(csr_mat@v_cpp - b))
 print(res.shape)
