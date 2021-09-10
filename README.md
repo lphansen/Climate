@@ -1,10 +1,14 @@
 > cpp solver: line 329 - 335
+>
 > ksp solver: line 390 - 407
+>
 > matrix difference: line 417 - 421
 
 Before first optimization:
 > AX = b
+>
 > A differece : 36.5
+>
 > b difference : 76.9
 
 # Pricing Uncertainty Induced by Climate Change
