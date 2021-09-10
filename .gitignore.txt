@@ -4,3 +4,4 @@ Python*Code/
 *.png
 *.mat
 *.o
+**/.DS_Store

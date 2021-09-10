@@ -484,7 +484,8 @@ void linearSysVars::constructMatFK(stateVars & state_vars) {
 
 py::tuple solveFT(Eigen::Ref<MatrixXdR> preLoadMat, Eigen::Ref<MatrixXdR> A, Eigen::Ref<MatrixXdR> B, Eigen::Ref<MatrixXdR> C,  Eigen::Ref<MatrixXdR> D, Eigen::Ref<MatrixXdR> v0, double dt, int tol)
 {
-    py::tuple data(3);
+    py::tuple data(5);
+    tic();
     stateVars stateSpace(preLoadMat);
 
     linearSysVars linearSys_vars(stateSpace, A,B,C,D,dt);
@@ -493,6 +494,9 @@ py::tuple solveFT(Eigen::Ref<MatrixXdR> preLoadMat, Eigen::Ref<MatrixXdR> A, Eig
     Eigen::VectorXd rhs; 
 
     rhs = v0.array() + dt * D.array(); // transform v0 into rhs
+    toc();
+    // saveMarket(rhs,"rhs.dat");
+    // saveMarket(linearSys_vars.Le,"Le_local_dt.dat");
     /*********************************************/
     /* Change RHS to reflect boundary conditions */
     /*********************************************/
@@ -513,7 +517,7 @@ py::tuple solveFT(Eigen::Ref<MatrixXdR> preLoadMat, Eigen::Ref<MatrixXdR> A, Eig
     // }
      
     /* Initialize Eigen's cg solver */
- 
+    tic();
     Eigen::VectorXd XiEVector;
     Eigen::LeastSquaresConjugateGradient<SpMat > cgE;
     // cgE.setMaxIterations(10000);
@@ -521,9 +525,12 @@ py::tuple solveFT(Eigen::Ref<MatrixXdR> preLoadMat, Eigen::Ref<MatrixXdR> A, Eig
     cgE.compute(linearSys_vars.Le);
 
     XiEVector = cgE.solveWithGuess(rhs, v0);
+    toc();
     data[0] = int(cgE.iterations());
     data[1] = cgE.error();
     data[2] = XiEVector;
+    data[3] = linearSys_vars.Le;
+    data[4] = rhs;
     return data;    
 
 }

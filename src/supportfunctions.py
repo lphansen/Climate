@@ -13,13 +13,13 @@ import pickle
 import SolveLinSys
 import numba as nb
 
-def finiteDiff(data, dim, order, dlt, cap = None):  
+def finiteDiff(data, dim, order, dlt, cap = None):
     # compute the central difference derivatives for given input and dimensions
     res = np.zeros(data.shape)
     l = len(data.shape)
     if l == 3:
         if order == 1:                    # first order derivatives
-            
+
             if dim == 0:                  # to first dimension
 
                 res[1:-1,:,:] = (1 / (2 * dlt)) * (data[2:,:,:] - data[:-2,:,:])
@@ -40,9 +40,9 @@ def finiteDiff(data, dim, order, dlt, cap = None):
 
             else:
                 raise ValueError('wrong dim')
-                
+
         elif order == 2:
-            
+
             if dim == 0:                  # to first dimension
 
                 res[1:-1,:,:] = (1 / dlt ** 2) * (data[2:,:,:] + data[:-2,:,:] - 2 * data[1:-1,:,:])
@@ -63,12 +63,12 @@ def finiteDiff(data, dim, order, dlt, cap = None):
 
             else:
                 raise ValueError('wrong dim')
-            
+
         else:
             raise ValueError('wrong order')
     elif l == 2:
         if order == 1:                    # first order derivatives
-            
+
             if dim == 0:                  # to first dimension
 
                 res[1:-1,:] = (1 / (2 * dlt)) * (data[2:,:] - data[:-2,:])
@@ -83,9 +83,9 @@ def finiteDiff(data, dim, order, dlt, cap = None):
 
             else:
                 raise ValueError('wrong dim')
-                
+
         elif order == 2:
-            
+
             if dim == 0:                  # to first dimension
 
                 res[1:-1,:] = (1 / dlt ** 2) * (data[2:,:] + data[:-2,:] - 2 * data[1:-1,:])
@@ -100,12 +100,12 @@ def finiteDiff(data, dim, order, dlt, cap = None):
 
             else:
                 raise ValueError('wrong dim')
-            
+
         else:
             raise ValueError('wrong order')
     else:
         raise ValueError("Dimension NOT supported")
-        
+
     if cap is not None:
         res[res < cap] = cap
     return res
@@ -145,21 +145,21 @@ def quad_int(f,a,b,n,method):
     Created by John Wilson (johnrwilson@uchicago.edu) & Updaed by Jiaming Wang (Jiamingwang@uchicago.edu)
     """
     if method == 'legendre':
-        
+
         (xs,ws) = quad_points_legendre(n)
         g = lambda x: f((b-a) * 0.5  * x + (a + b) * 0.5)
         s = np.prod((b-a) * 0.5)                ######## Why using prod here?
-        
+
     elif method == 'hermite':
-        
+
         (xs,ws) = quad_points_hermite(n)
         g = lambda x: f(np.sqrt(2) * b * x + a)
         s = 1 / np.sqrt(np.pi)
-        
+
     else:
         raise TypeError('Wrong polynomials specification')
-    
-    
+
+
     tp = type(a)
     if tp is np.float64 or tp is int or tp is np.double:
         res = 0
@@ -168,7 +168,7 @@ def quad_int(f,a,b,n,method):
             res += ws[i] * g(xs[i])
     else:
         raise ValueError('dimension is not 1')
-    
+
     return s * res
 
 
@@ -195,12 +195,12 @@ def PDESolver(stateSpace, A, B_r, B_f, B_k, C_rr, C_ff, C_kk, D, v0, ε = 1, tol
         return out
 
     elif solverType == 'Feyman Kac':
-        
+
         if smartguess:
             iters = 1
         else:
             iters = 400000
-            
+
         A = A.reshape(-1, 1, order='F')
         B = np.hstack([B_r.reshape(-1, 1, order='F'), B_f.reshape(-1, 1, order='F'), B_k.reshape(-1, 1, order='F')])
         C = np.hstack([C_rr.reshape(-1, 1, order='F'), C_ff.reshape(-1, 1, order='F'), C_kk.reshape(-1, 1, order='F')])
@@ -223,7 +223,7 @@ def densityPlot(beta_f_space, Dists, key = 'Weighted'):
     for i, year in enumerate(years):
         # data = loadmat("{}/50-50 weight/Dist_{}yr.mat".format(quad_rule, year))
         data = Dists
-        if key == 'Weighted': 
+        if key == 'Weighted':
             if i == 0:
                 fig.add_scatter(x = dom[inds] * 1000, y = data['Original'][inds], row = 1, col = i + 1,
                     name = 'Original Distribution', line = dict(color = '#1f77b4', width = 3), showlegend = True, legendgroup = 'Original Distribution')
@@ -335,13 +335,13 @@ def SCCDecomposePlot(SCCs, key = 'Weighted'):
                                          tickfont=dict(size=12), showgrid = False),
                   yaxis = go.layout.YAxis(title=go.layout.yaxis.Title(
                                     text='Dollars per Ton of Carbon', font=dict(size=16)),
-                                         tickfont=dict(size=12), showgrid = False), 
+                                         tickfont=dict(size=12), showgrid = False),
                   annotations=annotations
                   )
 
     fig = dict(data = [total,  uncertainty], layout = layout)
     iplot(fig)
-    
+
 def emissionPlot(damageSpec, ξ, e_hists):
 
 	colors = {'High': 'red', 'Low': 'green', 'Weighted': '#1f77b4'}
@@ -350,7 +350,7 @@ def emissionPlot(damageSpec, ξ, e_hists):
 	# damageSpecs = ['High', 'Low', 'Weighted']
 	# aversionSpecs = ['Averse', 'Neutral']
 	# colors = ['green', '#1f77b4', 'red']
-	# lines = ['solid', 'dashdot'] 
+	# lines = ['solid', 'dashdot']
 
 	x = np.linspace(0, 100, 400)
 	data = []
@@ -422,7 +422,7 @@ def growthemissionPlot(ξ, e_hists):
     # damageSpecs = ['High', 'Low', 'Weighted']
     # aversionSpecs = ['Averse', 'Neutral']
     # colors = ['green', '#1f77b4', 'red']
-    # lines = ['solid', 'dashdot'] 
+    # lines = ['solid', 'dashdot']
     if ξ < 1:  # Averse
         key = 'Growth Averse'
 
@@ -456,7 +456,7 @@ def growthSCCDecomposePlot(SCCs, ξ):
         x1, y1, x2, y2 = 60, 1500, 80, 1120
         lgd = False
         key = 'Growth Averse'
-        
+
         annotations=[dict(x=x1, y=y1, text="Total", textangle=0, ax=-100,
             ay=-75, font=dict(color="black", size=12), arrowcolor="black",
             arrowsize=3, arrowwidth=1, arrowhead=1),
@@ -498,20 +498,20 @@ def growthSCCDecomposePlot(SCCs, ξ):
            name = 'Private', line = dict(color = 'black', width = 3),\
                  showlegend = False)
 
-    
+
 
         # dict(x=x3, y=y3, text="External", textangle=0, ax=-80,
         #     ay=80, font=dict(color="black", size=12), arrowcolor="black",
         #     arrowsize=3, arrowwidth=1, arrowhead=1)]
 
-    layout = dict(title = 'Social Cost of Carbon, {} Specification'.format(key), 
+    layout = dict(title = 'Social Cost of Carbon, {} Specification'.format(key),
               titlefont = dict(size = 20),
               xaxis = go.layout.XAxis(title=go.layout.xaxis.Title(
                                 text='Years', font=dict(size=16)),
                                      tickfont=dict(size=12), showgrid = False),
               yaxis = go.layout.YAxis(title=go.layout.yaxis.Title(
                                 text='Dollars per Ton of Carbon', font=dict(size=16)),
-                                     tickfont=dict(size=12), showgrid = False), 
+                                     tickfont=dict(size=12), showgrid = False),
               annotations=annotations
               )
 

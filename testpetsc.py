@@ -157,7 +157,10 @@ if smart_guess:
     ε = 0.2
 
 
-while FC_Err > tol and episode < 2:
+while FC_Err > tol and episode <3:
+    print("-----------------------------------")
+    print("---------Episode {}---------------".format(episode))
+    print("-----------------------------------")
     vold = v0.copy()
     # Applying finite difference scheme to the value function
     v0_dr = finiteDiff(v0,0,1,hR)
@@ -323,8 +326,14 @@ while FC_Err > tol and episode < 2:
     C_kk = 0.5 * σ𝘬 ** 2 * np.ones(R_mat.shape)
     D = δ * κ * np.log(e_star) + δ * κ * R_mat + δ * (1 - κ) * (np.log(α - i - j) + K_mat) + drift_distort + RE_total # + I_term
 
+    start_cpp = time.time()
     out_cpp = PDESolver(stateSpace, A, B_r, B_f, B_k, C_rr, C_ff, C_kk, D, v0, ε, solverType = 'False Transient')
     out_comp_cpp = out_cpp[2].reshape(v0.shape,order = "F")
+    print("cpp solver: {}s".format(time.time() - start_cpp))
+    v_cpp = np.array(out_cpp[2])
+    bb = np.squeeze(b)
+    res = np.linalg.norm(out_cpp[3].dot(v_cpp) - out_cpp[4])
+    print("cpp residual norm: {:.12f}; iterations: {}".format(res, out_cpp[0]))
 
     PDE_rhs_cpp = A * v0 + B_r * v0_dr + B_f * v0_df + B_k * v0_dk + C_rr * v0_drr + C_kk * v0_dkk + C_ff * v0_dff + D
     PDE_Err_cpp = np.max(abs(PDE_rhs_cpp))
@@ -377,18 +386,25 @@ while FC_Err > tol and episode < 2:
     x = petsc_mat.createVecRight()
     x.set(0)
 
+
     # create linear solver
-    start = time.time()
+    print("~~~~~~~~~~~~~~~~~~~~~~~~")
+    start_ksp = time.time()
     ksp = PETSc.KSP()
     ksp.create(PETSc.COMM_WORLD)
     ksp.setType('lsqr')
     ksp.getPC().setType('none')
     ksp.setOperators(petsc_mat)
     ksp.setFromOptions()
-    ksp.setTolerances(rtol=1e-10, atol=1e-20)
+    ksp.setTolerances(rtol=1e-6, atol=1e-20)
     # petsc_time1 = time.time()
     ksp.solve(petsc_rhs, x)
-    print(ksp.getConvergedReason())
+    # compute residual norm
+    res_ksp = x.duplicate()
+    petsc_mat.mult(x,res_ksp)
+    res_ksp.aypx(-1.0,petsc_rhs)
+    print("ksp solver: {}s".format(time.time() - start_ksp))
+    print("residual norm is {:.12f}; iterations: {}".format(res_ksp.norm(), ksp.getIterationNumber()))
     out_comp = np.array(ksp.getSolution()).reshape(R_mat.shape,order = "F")
     A = A.reshape(R_mat.shape,order = "F")
     D = D.reshape(R_mat.shape,order = "F")
@@ -397,27 +413,30 @@ while FC_Err > tol and episode < 2:
     PDE_rhs = A * v0 + B_r * v0_dr + B_f * v0_df + B_k * v0_dk + C_rr * v0_drr + C_kk * v0_dkk + C_ff * v0_dff + D
     PDE_Err = np.max(abs(PDE_rhs))
     FC_Err = np.max(abs((out_comp - v0)))
-    if episode % 1 == 0:
-        print("Episode {:d}: PDE Error: {:.10f}; False Transient Error: {:.10f};" .format(episode, PDE_Err, FC_Err))
-    print("Time for this iteration: {}".format(time.time() - start))
 
-    # print(PDE_Err, PDE_Err_cpp)
-    v_cpp = np.array(out_cpp[2])
-    res = np.linalg.norm(csr_mat@v_cpp[2] - b )
-    np.save("res_cpp", res)
-    print(res)
+    # compare
+    print("~~~~~~~~~~~~~~~~~~~~~~")
+    A_diff =  np.max(np.abs(out_cpp[3] - csr_mat))
+    print("Coefficient matrix difference: {}".format(A_diff))
+    b_diff = np.max(np.abs(out_cpp[4] - np.squeeze(b)))
+    print("rhs difference: {}".format(b_diff))
+
+    print("******")
+    if episode % 1 == 0:
+        print("Episode {:d}: PDE Error: {:.10f}; False Transient Error: {:.10f}" .format(episode, PDE_Err, FC_Err))
     # step 9: keep iterating until convergence
     v0 = out_comp
     episode += 1
 
-print("Episode {:d}: PDE Error: {:.10f}; False Transient Error: {:.10f}" .format(episode, PDE_Err, FC_Err))
+print("===============================================")
+print("Episode {:d}: PDE Error: {:.10f}; False Transient Error: {:.10f}, {}, {}" .format(episode, PDE_Err, FC_Err, out_cpp[0], out_cpp[1]))
 print("--- %s seconds ---" % (time.time() - start_time))
 
 import pickle
 # filename = filename
 my_shelf = {}
 for key in dir():
-    if isinstance(globals()[key], (int,float, np.float, str, bool, np.ndarray,list)):
+    if isinstance(globals()[key], (int,float, float, str, bool, np.ndarray,list)):
         try:
             my_shelf[key] = globals()[key]
         except TypeError:
