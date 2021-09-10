@@ -11,6 +11,11 @@ Before first optimization:
 >
 > b difference : 76.9
 
+First optimization
+> cpp number of iterations: 117
+>
+> ksp number of iterations: 324
+
 # Pricing Uncertainty Induced by Climate Change
 
 
