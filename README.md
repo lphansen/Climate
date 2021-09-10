@@ -1,5 +1,16 @@
+> cpp solver: line 329 - 335
+> ksp solver: line 390 - 407
+> matrix difference: line 417 - 421
+
+Before first optimization:
+> AX = b
+> A differece : 36.5
+> b difference : 76.9
 
 # Pricing Uncertainty Induced by Climate Change
+
+
+
 This repository contains codes and jupyter notebooks which estimates and demonstrates results of the empirical model in "Pricing Uncertainty Induced by Climate Change" by [Michael Barnett][id3], [William Brock][id2] and [Lars Peter Hansen][id1]. Latest version could be found [here][id4].
 
 [id1]: https://larspeterhansen.org/

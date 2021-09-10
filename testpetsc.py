@@ -331,7 +331,6 @@ while FC_Err > tol and episode <3:
     out_comp_cpp = out_cpp[2].reshape(v0.shape,order = "F")
     print("cpp solver: {}s".format(time.time() - start_cpp))
     v_cpp = np.array(out_cpp[2])
-    bb = np.squeeze(b)
     res = np.linalg.norm(out_cpp[3].dot(v_cpp) - out_cpp[4])
     print("cpp residual norm: {:.12f}; iterations: {}".format(res, out_cpp[0]))
 
