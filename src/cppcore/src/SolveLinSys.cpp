@@ -484,7 +484,7 @@ void linearSysVars::constructMatFK(stateVars & state_vars) {
 
 py::tuple solveFT(Eigen::Ref<MatrixXdR> preLoadMat, Eigen::Ref<MatrixXdR> A, Eigen::Ref<MatrixXdR> B, Eigen::Ref<MatrixXdR> C,  Eigen::Ref<MatrixXdR> D, Eigen::Ref<MatrixXdR> v0, double dt, int tol)
 {
-    py::tuple data(3);
+    py::tuple data(5);
     tic();
     stateVars stateSpace(preLoadMat);
 
@@ -495,6 +495,7 @@ py::tuple solveFT(Eigen::Ref<MatrixXdR> preLoadMat, Eigen::Ref<MatrixXdR> A, Eig
 
     rhs = v0.array() + dt * D.array(); // transform v0 into rhs
     toc();
+    // saveMarket(rhs,"rhs.dat");
     // saveMarket(linearSys_vars.Le,"Le_local_dt.dat");
     /*********************************************/
     /* Change RHS to reflect boundary conditions */
@@ -528,6 +529,8 @@ py::tuple solveFT(Eigen::Ref<MatrixXdR> preLoadMat, Eigen::Ref<MatrixXdR> A, Eig
     data[0] = int(cgE.iterations());
     data[1] = cgE.error();
     data[2] = XiEVector;
+    data[3] = linearSys_vars.Le;
+    data[4] = rhs;
     return data;    
 
 }
