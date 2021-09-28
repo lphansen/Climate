@@ -1,0 +1,48 @@
+Time elapsed: 2.07853
+Time elapsed: 9.85776
+Time elapsed: 2.94485
+Time elapsed: 6.46323
+Time elapsed: 2.29177
+Time elapsed: 6.39026
+-----------------------------------
+---------Episode 0---------------
+-----------------------------------
+cpp solver: 12.498145818710327s
+cpp residual norm: 0.000000716282; iterations: 117
+~~~~~~~~~~~~~~~~~~~~~~~~
+ksp solver: 53.926729917526245s
+residual norm is 0.014315741338; iterations: 324
+~~~~~~~~~~~~~~~~~~~~~~
+Coefficient matrix difference: 3.552713678800501e-15
+rhs difference: 0.0
+******
+Episode 0: PDE Error: 0.2870213469; False Transient Error: 0.0824789314
+-----------------------------------
+---------Episode 1---------------
+-----------------------------------
+cpp solver: 9.999100923538208s
+cpp residual norm: 0.000000903995; iterations: 75
+~~~~~~~~~~~~~~~~~~~~~~~~
+ksp solver: 26.04088807106018s
+residual norm is 0.014289450036; iterations: 155
+~~~~~~~~~~~~~~~~~~~~~~
+Coefficient matrix difference: 2.6645352591003757e-15
+rhs difference: 0.0
+******
+Episode 1: PDE Error: 0.0780282001; False Transient Error: 0.0230667324
+-----------------------------------
+---------Episode 2---------------
+-----------------------------------
+cpp solver: 9.419820070266724s
+cpp residual norm: 0.000000835388; iterations: 75
+~~~~~~~~~~~~~~~~~~~~~~~~
+ksp solver: 25.61053204536438s
+residual norm is 0.014300948397; iterations: 153
+~~~~~~~~~~~~~~~~~~~~~~
+Coefficient matrix difference: 2.6645352591003757e-15
+rhs difference: 0.0
+******
+Episode 2: PDE Error: 0.0769619906; False Transient Error: 0.0227462533
+===============================================
+Episode 2: PDE Error: 0.0769619906; False Transient Error: 0.0227462533
+--- 192.48386883735657 seconds ---

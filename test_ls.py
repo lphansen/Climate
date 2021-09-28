@@ -402,7 +402,7 @@ while FC_Err > tol and episode < 2:
 
     v_cpp = np.array(out_cpp[2])
     np.save("v_cpp", v_cpp)
-    
+
     res_1 = np.linalg.norm(csr_mat@v_cpp - b)
 
     print(res_1)

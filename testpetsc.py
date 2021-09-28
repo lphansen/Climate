@@ -377,7 +377,8 @@ while FC_Err > tol and episode <3:
 
     # the transpose of matrix A_sp is the desired A matrix
     A_sp = spdiags(data, diags, len(diag_0), len(diag_0))
-    b = -v0 / ε - D
+    A_sp = A_sp * (- ε)
+    b = v0  +  D * ε
 
     csr_mat = csr_matrix(A_sp.T)
     petsc_mat = PETSc.Mat().createAIJ(size=csr_mat.shape, csr=(csr_mat.indptr, csr_mat.indices, csr_mat.data))
@@ -428,7 +429,7 @@ while FC_Err > tol and episode <3:
     episode += 1
 
 print("===============================================")
-print("Episode {:d}: PDE Error: {:.10f}; False Transient Error: {:.10f}, {}, {}" .format(episode, PDE_Err, FC_Err, out_cpp[0], out_cpp[1]))
+print("Episode {:d}: PDE Error: {:.10f}; False Transient Error: {:.10f}" .format(episode -1, PDE_Err, FC_Err))
 print("--- %s seconds ---" % (time.time() - start_time))
 
 import pickle
