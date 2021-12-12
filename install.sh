@@ -17,3 +17,7 @@ pip install plotly
 echo ===============================================================================
 echo Step 2: Install model solution core
 pip install ./src/cppcore
+echo ===============================================================================
+echo Step 3: Install C kernels for petsc4py
+pip install ./src/linearsystemcore
+

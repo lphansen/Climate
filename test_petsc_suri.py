@@ -7,6 +7,7 @@ sys.stdout.flush()
 import petsc4py
 petsc4py.init(sys.argv)
 from petsc4py import PETSc
+import petsclinearsystem
 from scipy.sparse import spdiags
 from scipy.sparse import coo_matrix
 from scipy.sparse import csr_matrix
@@ -14,7 +15,14 @@ from datetime import datetime
 
 reporterror = True
 # Linear solver choices
-linearsolver = 'petsc' # Chosse among petsc,eigen,both
+# Chosse among petsc, petsc4py, eigen, both
+# petsc: matrix assembled in C
+# petsc4py: matrix assembled in Python
+# eigen: matrix assembled in C++
+# both: petsc+eigen
+# both=eigen+petsc
+# 
+linearsolver = 'petsc' 
 
 # Damage function choices
 damageSpec = 'Weighted'  # Choose among "High"(Weitzman), 'Low'(Nordhaus) and 'Weighted' (arithmeticAverage of the two)
@@ -127,7 +135,7 @@ K_min = 0
 K_max = 18
 
 hR = 0.05
-hF = 25
+hF = 25.0 # make sure it is float instead of int
 hK = 0.15
 
 R = np.arange(R_min, R_max + hR, hR)
@@ -141,6 +149,13 @@ nK = len(K)
 # See Remark 2.1.2
 (R_mat, F_mat, K_mat) = np.meshgrid(R,F,K, indexing = 'ij')
 stateSpace = np.hstack([R_mat.reshape(-1,1,order = 'F'),F_mat.reshape(-1,1,order = 'F'),K_mat.reshape(-1,1,order = 'F')])
+
+# For PETSc
+R_mat_1d = R_mat.ravel(order = 'F')
+F_mat_1d = F_mat.ravel(order = 'F')
+K_mat_1d = K_mat.ravel(order = 'F')
+lowerLims = np.array([R_min, F_min, K_min],dtype=np.float64)
+upperLims = np.array([R_max, F_max, K_max],dtype=np.float64)
 
 # Inputs for function quad_int
 # Integrating across parameter distribution
@@ -262,43 +277,52 @@ while FC_Err > tol and episode <3:
             normdists[i_iter] = normpdf(xs[i_iter],β𝘧,np.sqrt(σᵦ))
             distort_terms[i_iter] = xi_d * (γ1 * xs[i_iter] + γ2 * xs[i_iter] ** 2 * F_mat + γ2_plus * xs[i_iter] * (xs[i_iter] * F_mat - F̄) ** (power - 1) * ((xs[i_iter] * F_mat - F̄) >= 0)) * np.exp(R_mat)
 
-        dVec = [hR, hF, hK]
-        increVec = [1, nR, nR * nF]
-        I_LB_R = (stateSpace[:,0] == R_min)
-        I_UB_R = (stateSpace[:,0] == R_max)
-        I_LB_F = (stateSpace[:,1] == F_min)
-        I_UB_F = (stateSpace[:,1] == F_max)
-        I_LB_K = (stateSpace[:,2] == K_min)
-        I_UB_K = (stateSpace[:,2] == K_max)
+        dVec = np.array([hR, hF, hK])
+        increVec = np.array([1, nR, nR * nF],dtype=np.int32)
+
         # These are constant
         A = -δ * np.ones(R_mat.shape)
         C_rr = 0.5 * σ𝘳 ** 2 * np.ones(R_mat.shape)
         C_ff = np.zeros(R_mat.shape)
         C_kk = 0.5 * σ𝘬 ** 2 * np.ones(R_mat.shape)
-        if linearsolver == 'petsc' or linearsolver == 'both':
-            A_1d = A.ravel(order = 'F')
-            C_rr_1d = C_rr.ravel(order = 'F')
-            C_ff_1d = C_ff.ravel(order = 'F')
-            C_kk_1d = C_kk.ravel(order = 'F')
-            diag_0_base = A_1d[:] + (I_LB_R * C_rr_1d[:] + I_UB_R * C_rr_1d[:] - 2 * (1 - I_LB_R - I_UB_R) * C_rr_1d[:]) / dVec[0] ** 2 + (I_LB_F * C_ff_1d[:] + I_UB_F * C_ff_1d[:] - 2 * (1 - I_LB_F - I_UB_F) * C_ff_1d[:]) / dVec[1] ** 2 + (I_LB_K * C_kk_1d[:] + I_UB_K * C_kk_1d[:] - 2 * (1 - I_LB_K - I_UB_K) * C_kk_1d[:]) / dVec[2] ** 2
-            diag_R_base = - 2 * I_LB_R * C_rr_1d[:] / dVec[0] ** 2 + (1 - I_LB_R - I_UB_R) * C_rr_1d[:] / dVec[0] ** 2
-            diag_Rm_base = - 2 * I_UB_R * C_rr_1d[:] / dVec[0] ** 2 + (1 - I_LB_R - I_UB_R) * C_rr_1d[:] / dVec[0] ** 2
-            diag_F_base = - 2 * I_LB_F * C_ff_1d[:] / dVec[1] ** 2 + (1 - I_LB_F - I_UB_F) * C_ff_1d[:] / dVec[1] ** 2
-            diag_Fm_base = - 2 * I_UB_F * C_ff_1d[:] / dVec[1] ** 2 + (1 - I_LB_F - I_UB_F) * C_ff_1d[:] / dVec[1] ** 2
-            diag_K_base = - 2 * I_LB_K * C_kk_1d[:] / dVec[2] ** 2 + (1 - I_LB_K - I_UB_K) * C_kk_1d[:] / dVec[2] ** 2
-            diag_Km_base = - 2 * I_UB_K * C_kk_1d[:] / dVec[2] ** 2 + (1 - I_LB_K - I_UB_K) * C_kk_1d[:] / dVec[2] ** 2
-            diag_RR = I_LB_R * C_rr_1d[:] / dVec[0] ** 2
-            diag_RRm = I_UB_R * C_rr_1d[:] / dVec[0] ** 2
-            diag_FF = I_LB_F * C_ff_1d[:] / dVec[1] ** 2
-            diag_FFm = I_UB_F * C_ff_1d[:] / dVec[1] ** 2
-            diag_KK = I_LB_K * C_kk_1d[:] / dVec[2] ** 2
-            diag_KKm = I_UB_K * C_kk_1d[:] / dVec[2] ** 2
+        if linearsolver == 'petsc4py' or linearsolver == 'petsc' or linearsolver == 'both':
+            petsc_mat = PETSc.Mat().create()
+            petsc_mat.setType('aij') 
+            petsc_mat.setSizes([nR*nF*nK, nR*nF*nK])
+            petsc_mat.setPreallocationNNZ(13)
+            petsc_mat.setUp()
             ksp = PETSc.KSP()
             ksp.create(PETSc.COMM_WORLD)
             ksp.setType('bcgs')
             ksp.getPC().setType('ilu')
             ksp.setFromOptions()
 
+            A_1d = A.ravel(order = 'F')
+            C_rr_1d = C_rr.ravel(order = 'F')
+            C_ff_1d = C_ff.ravel(order = 'F')
+            C_kk_1d = C_kk.ravel(order = 'F')
+
+            if linearsolver == 'petsc4py':
+                I_LB_R = (stateSpace[:,0] == R_min)
+                I_UB_R = (stateSpace[:,0] == R_max)
+                I_LB_F = (stateSpace[:,1] == F_min)
+                I_UB_F = (stateSpace[:,1] == F_max)
+                I_LB_K = (stateSpace[:,2] == K_min)
+                I_UB_K = (stateSpace[:,2] == K_max)
+                diag_0_base = A_1d[:] + (I_LB_R * C_rr_1d[:] + I_UB_R * C_rr_1d[:] - 2 * (1 - I_LB_R - I_UB_R) * C_rr_1d[:]) / dVec[0] ** 2 + (I_LB_F * C_ff_1d[:] + I_UB_F * C_ff_1d[:] - 2 * (1 - I_LB_F - I_UB_F) * C_ff_1d[:]) / dVec[1] ** 2 + (I_LB_K * C_kk_1d[:] + I_UB_K * C_kk_1d[:] - 2 * (1 - I_LB_K - I_UB_K) * C_kk_1d[:]) / dVec[2] ** 2
+                diag_R_base = - 2 * I_LB_R * C_rr_1d[:] / dVec[0] ** 2 + (1 - I_LB_R - I_UB_R) * C_rr_1d[:] / dVec[0] ** 2
+                diag_Rm_base = - 2 * I_UB_R * C_rr_1d[:] / dVec[0] ** 2 + (1 - I_LB_R - I_UB_R) * C_rr_1d[:] / dVec[0] ** 2
+                diag_F_base = - 2 * I_LB_F * C_ff_1d[:] / dVec[1] ** 2 + (1 - I_LB_F - I_UB_F) * C_ff_1d[:] / dVec[1] ** 2
+                diag_Fm_base = - 2 * I_UB_F * C_ff_1d[:] / dVec[1] ** 2 + (1 - I_LB_F - I_UB_F) * C_ff_1d[:] / dVec[1] ** 2
+                diag_K_base = - 2 * I_LB_K * C_kk_1d[:] / dVec[2] ** 2 + (1 - I_LB_K - I_UB_K) * C_kk_1d[:] / dVec[2] ** 2
+                diag_Km_base = - 2 * I_UB_K * C_kk_1d[:] / dVec[2] ** 2 + (1 - I_LB_K - I_UB_K) * C_kk_1d[:] / dVec[2] ** 2
+                diag_RR = I_LB_R * C_rr_1d[:] / dVec[0] ** 2
+                diag_RRm = I_UB_R * C_rr_1d[:] / dVec[0] ** 2
+                diag_FF = I_LB_F * C_ff_1d[:] / dVec[1] ** 2
+                diag_FFm = I_UB_F * C_ff_1d[:] / dVec[1] ** 2
+                diag_KK = I_LB_K * C_kk_1d[:] / dVec[2] ** 2
+                diag_KKm = I_UB_K * C_kk_1d[:] / dVec[2] ** 2
+   
     scale_2 = np.zeros(F_mat.shape)
     for i_iter in range(n):
         scale_2 += ws[i_iter] * scale_2_fnc(distort_terms[i_iter], normdists[i_iter], e_hat)
@@ -369,7 +393,7 @@ while FC_Err > tol and episode <3:
             FC_Err = np.max(abs((out_comp - v0)))
             print("Episode {:d} (Eigen): PDE Error: {:.10f}; False Transient Error: {:.10f}" .format(episode, PDE_Err, FC_Err))
 
-    if linearsolver == 'petsc' or linearsolver == 'both':
+    if linearsolver == 'petsc4py':
         bpoint1 = time.time()
         # ==== original impl ====
         # Transforming the 3-d coefficient matrix to 1-dimensional
@@ -459,7 +483,7 @@ while FC_Err > tol and episode <3:
         out_comp = np.array(ksp.getSolution()).reshape(R_mat.shape,order = "F")
         end_ksp = time.time()
         # print("ksp solve: {:.3f}s".format(end_ksp - start_ksp))
-        print("petsc total: {:.3f}s".format(end_ksp - bpoint1))
+        print("petsc4py total: {:.3f}s".format(end_ksp - bpoint1))
         print("PETSc preconditioned residual norm is {:g}; iterations: {}".format(ksp.getResidualNorm(), ksp.getIterationNumber()))
         if episode % 1 == 0 and reporterror:
             # Calculating PDE error and False Transient error
@@ -480,6 +504,62 @@ while FC_Err > tol and episode <3:
             # b_diff = np.max(np.abs(out_eigen[4] - np.squeeze(b)))
             # print("rhs difference: {:.3f}".format(b_diff))
 
+    if linearsolver == 'petsc' or linearsolver == 'both':
+        bpoint1 = time.time()
+        B_r_1d = B_r.ravel(order = 'F')
+        B_f_1d = B_f.ravel(order = 'F')
+        B_k_1d = B_k.ravel(order = 'F')
+        D_1d = D.ravel(order = 'F')
+        v0_1d = v0.ravel(order = 'F')
+        petsclinearsystem.formLinearSystem(R_mat_1d, F_mat_1d, K_mat_1d, A_1d, B_r_1d, B_f_1d, B_k_1d, C_rr_1d, C_ff_1d, C_kk_1d, ε, lowerLims, upperLims, dVec, increVec, petsc_mat)
+        # profiling
+        # bpoint2 = time.time()
+        # print("form petsc mat: {:.3f}s".format(bpoint2 - bpoint1))
+        b = v0_1d + D_1d*ε
+        # petsc4py setting
+        # petsc_mat.scale(-1./ε)
+        # b = -v0_1d/ε - D_1d
+        petsc_rhs = PETSc.Vec().createWithArray(b)
+        x = petsc_mat.createVecRight()
+        # profiling
+        # bpoint3 = time.time()
+        # print("form rhs and workvector: {:.3f}s".format(bpoint3 - bpoint2))
+
+        # compare
+        # ai, aj, av = petsc_mat.getValuesCSR()
+        # A_sp = csr_matrix((av, aj, ai),shape=petsc_mat.size)
+        # A_diff =  np.max(np.abs(out_eigen[3] - A_sp))
+        # print("Coefficient matrix difference: {:.3f}".format(A_diff))
+        # b_diff = np.max(np.abs(out_eigen[4] - np.squeeze(b)))
+        # print("rhs difference: {:.3f}".format(b_diff))
+
+        # dump to files
+        # x.set(0)
+        # viewer = PETSc.Viewer().createBinary('TCRE_MacDougallEtAl2017_A.dat', 'w')
+        #petsc_mat.view(viewer)
+        #viewer = PETSc.Viewer().createBinary('TCRE_MacDougallEtAl2017_b.dat', 'w')
+        #petsc_rhs.view(viewer)
+
+        # create linear solver
+        start_ksp = time.time()
+        ksp.setOperators(petsc_mat)
+        # ksp.setTolerances(rtol=1e-6, atol=1e-20)
+        ksp.solve(petsc_rhs, x)
+        # petsc_mat.destroy()
+        petsc_rhs.destroy()
+        x.destroy()
+        out_comp = np.array(ksp.getSolution()).reshape(R_mat.shape,order = "F")
+        end_ksp = time.time()
+        # profiling
+        # print("ksp solve: {:.3f}s".format(end_ksp - start_ksp))
+        print("petsc total: {:.3f}s".format(end_ksp - bpoint1))
+        print("PETSc preconditioned residual norm is {:g}; iterations: {}".format(ksp.getResidualNorm(), ksp.getIterationNumber()))
+        if episode % 1 == 0 and reporterror:
+            # Calculating PDE error and False Transient error
+            PDE_rhs = A * v0 + B_r * v0_dr + B_f * v0_df + B_k * v0_dk + C_rr * v0_drr + C_kk * v0_dkk + C_ff * v0_dff + D
+            PDE_Err = np.max(abs(PDE_rhs))
+            FC_Err = np.max(abs((out_comp - v0)))
+            print("Episode {:d} (PETSc): PDE Error: {:.10f}; False Transient Error: {:.10f}" .format(episode, PDE_Err, FC_Err))
     # step 9: keep iterating until convergence
     v0 = out_comp
     episode += 1
