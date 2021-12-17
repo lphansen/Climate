@@ -1,6 +1,6 @@
 #include "petsclinearsystem.h"
 
-inline void fill_mat_values(PetscScalar *State, PetscInt i, PetscInt center, PetscInt j, PetscScalar *lowerLims, PetscScalar *upperLims, PetscScalar *dVec, PetscInt *incVec, PetscInt maxcols,PetscScalar *B, PetscScalar *C, PetscScalar dt, PetscInt *cols, PetscScalar *vals)
+static inline void fill_mat_values(PetscScalar *State, PetscInt i, PetscInt center, PetscInt j, PetscScalar *lowerLims, PetscScalar *upperLims, PetscScalar *dVec, PetscInt *incVec, PetscInt maxcols,PetscScalar *B, PetscScalar *C, PetscScalar dt, PetscInt *cols, PetscScalar *vals)
 { 
   PetscScalar firstCoefE = B[i],secondCoefE = C[i];
 
